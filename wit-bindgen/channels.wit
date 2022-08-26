@@ -1,0 +1,2 @@
+emit: func(channel_name: string, event: string)
+poll: func(channel_name) -> list<string>
