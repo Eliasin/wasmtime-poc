@@ -1,0 +1,2 @@
+sout: func(msg: string)
+serr: func(msg: string)

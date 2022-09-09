@@ -49,4 +49,4 @@ variant event {
   outgoing(outgoing-event),
 }
 
-poll-sync: func() -> list<expected<event, string>>
+poll-sync: func() -> expected<list<expected<event, string>>, string>

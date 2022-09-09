@@ -1,6 +1,7 @@
 #![feature(hash_drain_filter)]
 
 mod app;
+mod debug_api;
 mod module;
 mod mqtt_api;
 
@@ -14,7 +15,8 @@ struct Args {
     app_config_path: String,
 }
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
 
     let app_config = AppConfig::from_app_config_file(args.app_config_path)?;
@@ -23,12 +25,11 @@ fn main() -> anyhow::Result<()> {
     let mut initialized_app_context = unitialized_app_context.initialize_modules()?;
     initialized_app_context.run_all_modules()?;
 
-    for (module_name, result) in initialized_app_context.join_modules() {
-        match result {
-            Ok(_) => println!("module '{}' finished successfully", module_name),
-            Err(e) => println!("module '{}' exited with error: {}", module_name, e),
+    loop {
+        let cleaned_up = initialized_app_context.cleanup_finished_modules().await?;
+
+        if cleaned_up.len() > 0 {
+            println!("{:?}", cleaned_up);
         }
     }
-
-    Ok(())
 }
