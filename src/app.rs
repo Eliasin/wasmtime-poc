@@ -8,7 +8,7 @@ use crate::{
     debug_api,
     module::{
         initialize_fio_for_module, initialize_mqtt_for_module, mqtt_event_loop_task, ModuleConfig,
-        ModuleRuntimeConfig, WasmModuleStore,
+        ModuleRuntimeConfig, MqttRuntime, WasmModuleStore,
     },
     mqtt_api,
 };
@@ -40,14 +40,14 @@ pub struct UninitializedAppContext {
     modules: HashMap<String, UninitializedModule<ModuleRuntimeConfig>>,
 }
 
-struct MqttEventLoopTaskInfo {
+struct MqttEventLoopTask {
     pub runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
     pub task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
 }
 
 struct ModuleRuntime {
     module_task_handle: tokio::task::JoinHandle<Result<(), wasmtime::Trap>>,
-    module_mqtt_event_loop_task_info: Option<MqttEventLoopTaskInfo>,
+    module_mqtt_event_loop_task_info: Option<MqttEventLoopTask>,
 }
 
 struct ModuleData {
@@ -130,6 +130,27 @@ impl UninitializedAppContext {
     }
 }
 
+fn create_mqtt_event_loop_task(
+    event_loop: rumqttc::EventLoop,
+    event_channel_sender: mpsc::Sender<rumqttc::Event>,
+) -> MqttEventLoopTask {
+    let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
+
+    let mqtt_event_loop_task_handle = tokio::spawn(async move {
+        mqtt_event_loop_task(
+            event_channel_sender,
+            mqtt_event_loop_runtime_receiver,
+            event_loop,
+        )
+        .await
+    });
+
+    MqttEventLoopTask {
+        runtime_event_sender: mqtt_event_loop_runtime_sender,
+        task_handle: mqtt_event_loop_task_handle,
+    }
+}
+
 impl InitializedAppContext {
     pub async fn cleanup_finished_modules(
         &mut self,
@@ -176,27 +197,17 @@ impl InitializedAppContext {
                     initialize_mqtt_for_module(&module_template.runtime_config)
                 {
                     match mqtt_runtime {
-                        Ok(mqtt_runtime) => {
-                            mqtt_connection = Some(mqtt_runtime.mqtt);
+                        Ok(MqttRuntime {
+                            mqtt,
+                            event_loop,
+                            event_channel_sender,
+                        }) => {
+                            mqtt_connection = Some(mqtt);
 
-                            let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) =
-                                mpsc::channel(32);
-
-                            let mqtt_event_loop_task_handle = tokio::spawn(async move {
-                                mqtt_event_loop_task(
-                                    mqtt_runtime.event_channel_sender,
-                                    mqtt_event_loop_runtime_receiver,
-                                    mqtt_runtime.event_loop,
-                                )
-                                .await
-                            });
-
-                            let mqtt_event_loop_task_info = MqttEventLoopTaskInfo {
-                                runtime_event_sender: mqtt_event_loop_runtime_sender,
-                                task_handle: mqtt_event_loop_task_handle,
-                            };
-
-                            module_mqtt_event_loop_task_info = Some(mqtt_event_loop_task_info);
+                            module_mqtt_event_loop_task_info = Some(create_mqtt_event_loop_task(
+                                event_loop,
+                                event_channel_sender,
+                            ));
                         }
                         Err(e) => eprintln!(
                             "Error starting MQTT runtime for module '{}': {}",
@@ -246,4 +257,6 @@ impl InitializedAppContext {
 
         Ok(())
     }
+
+    pub async fn watch_modules(&mut self) {}
 }
