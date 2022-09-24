@@ -1,9 +1,12 @@
 use anyhow::anyhow;
 use serde_derive::Deserialize;
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use tokio::sync::mpsc;
 
-use crate::{app::RuntimeEvent, mqtt_api::MqttConnection};
+use crate::{app::RuntimeEvent, fio_api::FileIOState, mqtt_api::MqttConnection};
 
 #[derive(Deserialize, Clone)]
 pub struct MqttRuntimeConfig {
@@ -16,8 +19,17 @@ pub struct MqttRuntimeConfig {
 }
 
 #[derive(Deserialize, Clone)]
+pub struct FileIORuntimeConfig {
+    allowed_write_files: Vec<String>,
+    allowed_write_folders: Vec<String>,
+    allowed_read_files: Vec<String>,
+    allowed_read_folders: Vec<String>,
+}
+
+#[derive(Deserialize, Clone)]
 pub struct ModuleRuntimeConfig {
     pub mqtt: Option<MqttRuntimeConfig>,
+    pub fio: Option<FileIORuntimeConfig>,
 }
 
 #[derive(Deserialize)]
@@ -32,10 +44,14 @@ pub struct MqttRuntime {
     pub event_loop: rumqttc::EventLoop,
 }
 
-pub struct WasmModuleStore {
-    pub mqtt_connection: Option<MqttConnection>,
+pub struct FileIORuntime {
+    pub fio: FileIOState,
 }
 
+pub struct WasmModuleStore {
+    pub mqtt_connection: Option<MqttConnection>,
+    pub fio: Option<FileIOState>,
+}
 fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<MqttRuntime> {
     let mut mqtt_options = rumqttc::MqttOptions::new(
         mqtt_config.id.clone(),
@@ -63,6 +79,33 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<MqttRu
         ),
         event_channel_sender: tx,
         event_loop,
+    })
+}
+
+fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<FileIORuntime> {
+    Ok(FileIORuntime {
+        fio: FileIOState::new(
+            fio_config
+                .allowed_write_files
+                .iter()
+                .map(PathBuf::from)
+                .collect(),
+            fio_config
+                .allowed_write_folders
+                .iter()
+                .map(PathBuf::from)
+                .collect(),
+            fio_config
+                .allowed_read_files
+                .iter()
+                .map(PathBuf::from)
+                .collect(),
+            fio_config
+                .allowed_read_folders
+                .iter()
+                .map(PathBuf::from)
+                .collect(),
+        ),
     })
 }
 
@@ -96,4 +139,10 @@ pub fn initialize_mqtt_for_module(
     module_runtime_config: &ModuleRuntimeConfig,
 ) -> Option<anyhow::Result<MqttRuntime>> {
     module_runtime_config.mqtt.as_ref().map(create_mqtt_runtime)
+}
+
+pub fn initialize_fio_for_module(
+    module_runtime_config: &ModuleRuntimeConfig,
+) -> Option<anyhow::Result<FileIORuntime>> {
+    module_runtime_config.fio.as_ref().map(create_fio_runtime)
 }

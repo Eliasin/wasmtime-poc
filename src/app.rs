@@ -7,8 +7,8 @@ use wasmtime::{Engine, Linker, Module, Store};
 use crate::{
     debug_api,
     module::{
-        initialize_mqtt_for_module, mqtt_event_loop_task, ModuleConfig, ModuleRuntimeConfig,
-        WasmModuleStore,
+        initialize_fio_for_module, initialize_mqtt_for_module, mqtt_event_loop_task, ModuleConfig,
+        ModuleRuntimeConfig, WasmModuleStore,
     },
     mqtt_api,
 };
@@ -205,8 +205,28 @@ impl InitializedAppContext {
                     }
                 }
 
-                let mut store =
-                    Store::new(&module_template.engine, WasmModuleStore { mqtt_connection });
+                let mut fio = None;
+                if let Some(fio_runtime) =
+                    initialize_fio_for_module(&module_template.runtime_config)
+                {
+                    match fio_runtime {
+                        Ok(fio_runtime) => {
+                            fio = Some(fio_runtime.fio);
+                        }
+                        Err(e) => eprintln!(
+                            "Error starting File IO runtime for module '{}': {}",
+                            module_name, e
+                        ),
+                    }
+                }
+
+                let mut store = Store::new(
+                    &module_template.engine,
+                    WasmModuleStore {
+                        mqtt_connection,
+                        fio,
+                    },
+                );
                 let instance = module_template
                     .linker
                     .instantiate(&mut store, &module_template.module)?;
