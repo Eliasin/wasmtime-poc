@@ -4,6 +4,7 @@ mod app;
 mod debug_api;
 mod module;
 mod mqtt_api;
+mod fio_api;
 
 use app::{AppConfig, UninitializedAppContext};
 use clap::Parser;
