@@ -114,6 +114,7 @@ pub async fn mqtt_event_loop_task(
     mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
     mut event_loop: rumqttc::EventLoop,
 ) -> anyhow::Result<()> {
+    // TODO: Exponential backoff retry for MQTT
     loop {
         tokio::select! {
             notification = event_loop.poll() => {
