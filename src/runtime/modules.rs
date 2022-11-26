@@ -1,12 +1,14 @@
 use anyhow::anyhow;
 use serde_derive::Deserialize;
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
 use tokio::sync::mpsc;
 
-use crate::{app::RuntimeEvent, fio_api::FileIOState, mqtt_api::MqttConnection};
+use super::RuntimeEvent;
+use crate::{api::fio_api::FileIOState, api::mqtt_api::MqttConnection};
 
 #[derive(Deserialize, Clone)]
 pub struct MqttRuntimeConfig {
@@ -38,6 +40,19 @@ pub struct ModuleConfig {
     pub wasm_module_path: Box<Path>,
 }
 
+#[derive(Deserialize)]
+pub struct AppConfig {
+    pub modules: HashMap<String, ModuleConfig>,
+}
+
+impl AppConfig {
+    pub fn from_app_config_file(path: impl AsRef<Path>) -> anyhow::Result<AppConfig> {
+        let config_file_contents = std::fs::read_to_string(path)?;
+
+        Ok(toml::from_str(&config_file_contents)?)
+    }
+}
+
 pub struct MqttRuntime {
     pub mqtt: MqttConnection,
     pub event_channel_sender: mpsc::Sender<rumqttc::Event>,
@@ -52,6 +67,7 @@ pub struct WasmModuleStore {
     pub mqtt_connection: Option<MqttConnection>,
     pub fio: Option<FileIOState>,
 }
+
 fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<MqttRuntime> {
     let mut mqtt_options = rumqttc::MqttOptions::new(
         mqtt_config.id.clone(),

@@ -1,13 +1,10 @@
 #![feature(hash_drain_filter)]
 
-mod app;
-mod debug_api;
-mod module;
-mod mqtt_api;
-mod fio_api;
+mod api;
+mod runtime;
 
-use app::{AppConfig, UninitializedAppContext};
 use clap::Parser;
+use runtime::{AppConfig, UninitializedAppContext};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

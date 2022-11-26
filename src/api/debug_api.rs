@@ -4,7 +4,7 @@ export!("./wit-bindgen/debug.wit");
 
 pub use debug::add_to_linker;
 
-use crate::module::WasmModuleStore;
+use crate::runtime::WasmModuleStore;
 
 impl debug::Debug for WasmModuleStore {
     fn sout(&mut self, msg: &str) {

@@ -1,26 +1,18 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use serde::Deserialize;
 use tokio::sync::mpsc;
 use wasmtime::{Engine, Linker, Module, Store};
 
-use crate::{
-    debug_api,
-    module::{
-        initialize_fio_for_module, initialize_mqtt_for_module, mqtt_event_loop_task, ModuleConfig,
-        ModuleRuntimeConfig, MqttRuntime, WasmModuleStore,
-    },
-    mqtt_api,
+use crate::{api::debug_api, api::mqtt_api};
+
+use super::{
+    initialize_fio_for_module, initialize_mqtt_for_module, mqtt_event_loop_task, AppConfig,
+    ModuleRuntimeConfig, MqttRuntime, WasmModuleStore,
 };
 
 #[derive(Debug)]
 pub enum RuntimeEvent {
     RuntimeTaskStop,
-}
-
-#[derive(Deserialize)]
-pub struct AppConfig {
-    pub modules: HashMap<String, ModuleConfig>,
 }
 
 pub struct UninitializedModule<C> {
@@ -57,14 +49,6 @@ struct ModuleData {
 
 pub struct InitializedAppContext {
     modules: HashMap<String, ModuleData>,
-}
-
-impl AppConfig {
-    pub fn from_app_config_file(path: impl AsRef<Path>) -> anyhow::Result<AppConfig> {
-        let config_file_contents = std::fs::read_to_string(path)?;
-
-        Ok(toml::from_str(&config_file_contents)?)
-    }
 }
 
 impl UninitializedAppContext {
@@ -257,6 +241,4 @@ impl InitializedAppContext {
 
         Ok(())
     }
-
-    pub async fn watch_modules(&mut self) {}
 }
