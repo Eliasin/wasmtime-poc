@@ -1797,6 +1797,7 @@ checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 [[package]]
 name = "wit-bindgen-core"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "anyhow",
  "wit-parser",
@@ -1805,6 +1806,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-host-wasmtime-rust"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-core",
@@ -1814,6 +1816,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-gen-rust-lib"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "heck 0.3.3",
  "wit-bindgen-core",
@@ -1822,6 +1825,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-host-wasmtime-rust"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -1833,6 +1837,7 @@ dependencies = [
 [[package]]
 name = "wit-bindgen-host-wasmtime-rust-macro"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -1843,6 +1848,7 @@ dependencies = [
 [[package]]
 name = "wit-parser"
 version = "0.2.0"
+source = "git+https://github.com/bytecodealliance/wit-bindgen.git?rev=a4a138be44c8c959470b1e458bd7b5731813cbd2#a4a138be44c8c959470b1e458bd7b5731813cbd2"
 dependencies = [
  "anyhow",
  "id-arena",
