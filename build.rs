@@ -1,0 +1,122 @@
+use anyhow::anyhow;
+use cargo_toml::{Manifest, Value};
+
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+
+fn main() -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed=build.rs");
+    let module_build_dir_path = Path::new("module-build/");
+    if module_build_dir_path.exists() {
+        fs::remove_dir_all(module_build_dir_path)?;
+    } else {
+        fs::create_dir(module_build_dir_path)?;
+    }
+
+    let mut module_build_threads = vec![];
+
+    for module_dir in fs::read_dir("modules/")? {
+        let module_dir = match module_dir {
+            Ok(module_dir) => module_dir,
+            Err(e) => {
+                println!("cargo:warning=Error traversing modules directory: {:?}", e);
+                continue;
+            }
+        };
+
+        if !module_dir.path().is_dir() {
+            continue;
+        }
+
+        let mut cargo_build_command = {
+            let mut c = Command::new("cargo");
+            c.args(["build", "--target", "wasm32-unknown-unknown"])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .current_dir(module_dir.path().canonicalize()?);
+            c
+        };
+
+        let command_thread_handle = match cargo_build_command.spawn() {
+            Ok(command_thread_handle) => command_thread_handle,
+            Err(e) => {
+                println!(
+                    "cargo:warning=Error starting cargo command for module at {}, error: {:?}",
+                    module_dir.path().canonicalize()?.display(),
+                    e
+                );
+                continue;
+            }
+        };
+        module_build_threads.push((module_dir.path(), command_thread_handle));
+    }
+
+    let mut modules: Vec<(PathBuf, String)> = vec![];
+
+    for (module_path, module_build_thread_handle) in module_build_threads.into_iter() {
+        let output = module_build_thread_handle.wait_with_output()?;
+
+        if !output.status.success() {
+            println!(
+                "cargo:warning=Module {} build was unsuccessful, output: {}, err: {}",
+                module_path.display(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+        } else {
+            let module_package_name = {
+                let module_cargo_toml_file_path = module_path.join(Path::new("Cargo.toml"));
+                let manifest = match Manifest::<Value>::from_path(&module_cargo_toml_file_path) {
+                    Ok(manifest) => manifest,
+                    Err(e) => return Err(anyhow!("Could not parse module manifest for module at path {}. Internal error is: {:?}", module_cargo_toml_file_path.display(), e)),
+                };
+
+                manifest
+                    .package
+                    .ok_or(anyhow!(
+                        "Missing package fields in module {} Cargo.toml",
+                        module_path.display()
+                    ))?
+                    .name
+            };
+
+            if let Some((conflicting_module_path, _)) = modules
+                .iter()
+                .find(|(_, name)| *name == module_package_name)
+            {
+                return Err(anyhow!(
+                    "Module name {} is duplicated, found in {} and {}",
+                    module_package_name,
+                    conflicting_module_path.display(),
+                    module_path.display()
+                ));
+            }
+
+            modules.push((module_path.clone(), module_package_name.clone()));
+
+            let adjusted_module_package_name = module_package_name.replace("-", "_");
+
+            let wasm_module_file_path = module_path
+                .join("target/wasm32-unknown-unknown/debug/")
+                .join(adjusted_module_package_name.clone())
+                .with_extension("wasm");
+
+            let wasm_module_destination_file_path = module_build_dir_path
+                .join(adjusted_module_package_name.clone())
+                .with_extension("wasm");
+
+            if !wasm_module_file_path.exists() {
+                return Err(anyhow!(
+                    "WASM module file for module name {} at path {} could not be found",
+                    adjusted_module_package_name,
+                    wasm_module_file_path.display()
+                ));
+            }
+
+            fs::copy(wasm_module_file_path, wasm_module_destination_file_path)?;
+        }
+    }
+
+    Ok(())
+}

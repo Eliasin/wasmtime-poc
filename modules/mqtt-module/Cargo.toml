@@ -1,0 +1,12 @@
+[package]
+name = "mqtt-module"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git", rev = "a4a138be44c8c959470b1e458bd7b5731813cbd2" }
