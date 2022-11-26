@@ -53,7 +53,7 @@ impl AppConfig {
     }
 }
 
-pub struct MqttRuntime {
+pub struct AsyncMqttRuntime {
     pub mqtt: MqttConnection,
     pub event_channel_sender: mpsc::Sender<rumqttc::Event>,
     pub event_loop: rumqttc::EventLoop,
@@ -68,7 +68,7 @@ pub struct WasmModuleStore {
     pub fio: Option<FileIOState>,
 }
 
-fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<MqttRuntime> {
+fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncMqttRuntime> {
     let mut mqtt_options = rumqttc::MqttOptions::new(
         mqtt_config.id.clone(),
         mqtt_config.host.clone(),
@@ -85,7 +85,7 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<MqttRu
         .enable_all()
         .build()?;
 
-    Ok(MqttRuntime {
+    Ok(AsyncMqttRuntime {
         mqtt: MqttConnection::new(
             client,
             rx,
@@ -125,7 +125,7 @@ fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<FileIO
     })
 }
 
-pub async fn mqtt_event_loop_task(
+pub async fn async_mqtt_event_loop_task(
     event_channel_sender: mpsc::Sender<rumqttc::Event>,
     mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
     mut event_loop: rumqttc::EventLoop,
@@ -152,9 +152,9 @@ pub async fn mqtt_event_loop_task(
     }
 }
 
-pub fn initialize_mqtt_for_module(
+pub fn initialize_async_mqtt_for_module(
     module_runtime_config: &ModuleRuntimeConfig,
-) -> Option<anyhow::Result<MqttRuntime>> {
+) -> Option<anyhow::Result<AsyncMqttRuntime>> {
     module_runtime_config.mqtt.as_ref().map(create_mqtt_runtime)
 }
 

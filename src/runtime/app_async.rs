@@ -3,85 +3,42 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 use wasmtime::{Engine, Linker, Module, Store};
 
-use crate::{api::debug_api, api::mqtt_api};
+use crate::api::{debug_api, mqtt_api};
 
 use super::{
-    initialize_fio_for_module, initialize_mqtt_for_module, mqtt_event_loop_task, AppConfig,
-    ModuleRuntimeConfig, MqttRuntime, WasmModuleStore,
+    async_mqtt_event_loop_task, initialize_async_mqtt_for_module, initialize_fio_for_module,
+    AsyncMqttRuntime, InitializedModule, ModuleRuntimeConfig, RuntimeEvent,
+    UninitializedAppContext, WasmModuleStore,
 };
 
-#[derive(Debug)]
-pub enum RuntimeEvent {
-    RuntimeTaskStop,
+struct AsyncMqttEventLoopTask {
+    runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
+    task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
 }
 
-pub struct UninitializedModule<C> {
-    bytes: Box<[u8]>,
-    runtime_config: C,
-}
-
-#[derive(Clone)]
-pub struct InitializedModule<T, C> {
-    pub module: Module,
-    pub linker: Linker<T>,
-    pub engine: Arc<Engine>,
-    pub runtime_config: C,
-}
-
-pub struct UninitializedAppContext {
-    modules: HashMap<String, UninitializedModule<ModuleRuntimeConfig>>,
-}
-
-struct MqttEventLoopTask {
-    pub runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
-    pub task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
-}
-
-struct ModuleRuntime {
+struct AsyncModuleRuntime {
     module_task_handle: tokio::task::JoinHandle<Result<(), wasmtime::Trap>>,
-    module_mqtt_event_loop_task_info: Option<MqttEventLoopTask>,
+    module_mqtt_event_loop_task_info: Option<AsyncMqttEventLoopTask>,
 }
 
-struct ModuleData {
+struct AsyncModuleData {
     module_template: InitializedModule<WasmModuleStore, ModuleRuntimeConfig>,
-    runtime: Option<ModuleRuntime>,
+    runtime: Option<AsyncModuleRuntime>,
 }
 
-pub struct InitializedAppContext {
-    modules: HashMap<String, ModuleData>,
+pub struct InitializedAsyncAppContext {
+    modules: HashMap<String, AsyncModuleData>,
 }
 
 impl UninitializedAppContext {
-    pub fn new(config: &AppConfig) -> anyhow::Result<UninitializedAppContext> {
-        let modules: Result<HashMap<String, UninitializedModule<ModuleRuntimeConfig>>, _> =
-            config
-                .modules
-                .iter()
-                .map(
-                    |(module_name, module_config)| -> std::io::Result<(String, UninitializedModule<ModuleRuntimeConfig>)> {
-                        Ok((
-                            module_name.clone(),
-                            UninitializedModule::<ModuleRuntimeConfig> {
-                                bytes: std::fs::read(&module_config.wasm_module_path)?
-                                    .into_boxed_slice(),
-                                runtime_config: module_config.runtime.clone(),
-                            },
-                        ))
-                    },
-                )
-                .collect();
-
-        Ok(UninitializedAppContext { modules: modules? })
-    }
-
-    pub fn initialize_modules(self) -> anyhow::Result<InitializedAppContext> {
+    pub fn async_initialize_modules(self) -> anyhow::Result<InitializedAsyncAppContext> {
         let engine = Arc::new(Engine::default());
 
-        let initialized_modules: Result<HashMap<String, ModuleData>, _> = self
+        let initialized_modules: Result<HashMap<String, AsyncModuleData>, _> = self
             .modules
             .into_iter()
             .map(
-                |(module_name, module)| -> anyhow::Result<(String, ModuleData)> {
+                |(module_name, module)| -> anyhow::Result<(String, AsyncModuleData)> {
                     let mut linker = Linker::<WasmModuleStore>::new(&engine);
 
                     let compiled_module = Module::from_binary(&engine, &module.bytes)?;
@@ -91,7 +48,7 @@ impl UninitializedAppContext {
 
                     Ok((
                         module_name,
-                        ModuleData {
+                        AsyncModuleData {
                             module_template: InitializedModule::<
                                 WasmModuleStore,
                                 ModuleRuntimeConfig,
@@ -108,20 +65,20 @@ impl UninitializedAppContext {
             )
             .collect();
 
-        Ok(InitializedAppContext {
+        Ok(InitializedAsyncAppContext {
             modules: initialized_modules?,
         })
     }
 }
 
-fn create_mqtt_event_loop_task(
+fn create_async_mqtt_event_loop_task(
     event_loop: rumqttc::EventLoop,
     event_channel_sender: mpsc::Sender<rumqttc::Event>,
-) -> MqttEventLoopTask {
+) -> AsyncMqttEventLoopTask {
     let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
 
     let mqtt_event_loop_task_handle = tokio::spawn(async move {
-        mqtt_event_loop_task(
+        async_mqtt_event_loop_task(
             event_channel_sender,
             mqtt_event_loop_runtime_receiver,
             event_loop,
@@ -129,13 +86,13 @@ fn create_mqtt_event_loop_task(
         .await
     });
 
-    MqttEventLoopTask {
+    AsyncMqttEventLoopTask {
         runtime_event_sender: mqtt_event_loop_runtime_sender,
         task_handle: mqtt_event_loop_task_handle,
     }
 }
 
-impl InitializedAppContext {
+impl InitializedAsyncAppContext {
     pub async fn cleanup_finished_modules(
         &mut self,
     ) -> anyhow::Result<Vec<Result<(), wasmtime::Trap>>> {
@@ -178,20 +135,19 @@ impl InitializedAppContext {
                 let mut module_mqtt_event_loop_task_info = None;
 
                 if let Some(mqtt_runtime) =
-                    initialize_mqtt_for_module(&module_template.runtime_config)
+                    initialize_async_mqtt_for_module(&module_template.runtime_config)
                 {
                     match mqtt_runtime {
-                        Ok(MqttRuntime {
+                        Ok(AsyncMqttRuntime {
                             mqtt,
                             event_loop,
                             event_channel_sender,
                         }) => {
                             mqtt_connection = Some(mqtt);
 
-                            module_mqtt_event_loop_task_info = Some(create_mqtt_event_loop_task(
-                                event_loop,
-                                event_channel_sender,
-                            ));
+                            module_mqtt_event_loop_task_info = Some(
+                                create_async_mqtt_event_loop_task(event_loop, event_channel_sender),
+                            );
                         }
                         Err(e) => eprintln!(
                             "Error starting MQTT runtime for module '{}': {}",
@@ -230,7 +186,7 @@ impl InitializedAppContext {
                 let module_task_handle =
                     tokio::task::spawn_blocking(move || wasm_entrypoint.call(&mut store, ()));
 
-                let module_runtime = ModuleRuntime {
+                let module_runtime = AsyncModuleRuntime {
                     module_task_handle,
                     module_mqtt_event_loop_task_info,
                 };
