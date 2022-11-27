@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::sync::Mutex;
-
 use rumqttc::Incoming;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -9,30 +6,38 @@ export!("./wit-bindgen/mqtt.wit");
 
 pub use mqtt::add_to_linker;
 
+pub enum MqttClientAction {
+    Publish {
+        topic: String,
+        qos: rumqttc::QoS,
+        retain: bool,
+        payload: Vec<u8>,
+    },
+    Subscribe {
+        topic: String,
+        qos: rumqttc::QoS,
+    },
+}
+
 pub struct MqttConnection {
-    client: Arc<Mutex<rumqttc::AsyncClient>>,
-    events: mpsc::Receiver<rumqttc::Event>,
+    mqtt_client_action_sender: mpsc::Sender<MqttClientAction>,
+    mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
-    rt: tokio::runtime::Runtime,
 }
 
 impl MqttConnection {
     pub fn new(
-        client: rumqttc::AsyncClient,
-        events: mpsc::Receiver<rumqttc::Event>,
+        mqtt_client_action_sender: mpsc::Sender<MqttClientAction>,
+        mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
-        rt: tokio::runtime::Runtime,
     ) -> MqttConnection {
-        let client = Arc::new(Mutex::new(client));
-
         MqttConnection {
-            client,
-            events,
+            mqtt_client_action_sender,
+            mqtt_event_receiver,
             allowed_sub_topics,
             allowed_pub_topics,
-            rt,
         }
     }
 }
@@ -55,12 +60,15 @@ impl mqtt::Mqtt for MqttConnection {
         retain: bool,
         payload: &[u8],
     ) -> Result<(), String> {
-        let client = &mut self.client.lock().unwrap();
-
         if self.allowed_pub_topics.contains(&topic.to_string()) {
-            self.rt
-                .block_on(client.publish(topic, map_qos(qos), retain, payload))
-                .map_err(|e| format!("rumqttc error: '{}'", e))?;
+            self.mqtt_client_action_sender
+                .blocking_send(MqttClientAction::Publish {
+                    topic: topic.to_string(),
+                    qos: map_qos(qos),
+                    retain,
+                    payload: payload.to_owned(),
+                })
+                .map_err(|e| format!("error sending event to mqtt runtime: {}", e))?;
 
             Ok(())
         } else {
@@ -72,12 +80,14 @@ impl mqtt::Mqtt for MqttConnection {
     }
 
     fn subscribe_sync(&mut self, topic: &str, qos: mqtt::QualityOfService) -> Result<(), String> {
-        let client = &mut self.client.lock().unwrap();
-
         if self.allowed_sub_topics.contains(&topic.to_string()) {
-            self.rt
-                .block_on(client.subscribe(topic, map_qos(qos)))
-                .map_err(|e| format!("rumqttc error: '{}'", e))?;
+            self.mqtt_client_action_sender
+                .blocking_send(MqttClientAction::Subscribe {
+                    topic: topic.to_string(),
+                    qos: map_qos(qos),
+                })
+                .map_err(|e| format!("error sending event to mqtt runtime: {}", e))?;
+
             Ok(())
         } else {
             Err(format!(
@@ -91,7 +101,7 @@ impl mqtt::Mqtt for MqttConnection {
         let mut events = vec![];
 
         loop {
-            match self.events.try_recv() {
+            match self.mqtt_event_receiver.try_recv() {
                 Ok(notification) => {
                     use rumqttc::Event;
                     events.push(match notification {

@@ -1,14 +1,16 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use serde_derive::Deserialize;
 use std::{
-    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
 use tokio::sync::mpsc;
 
 use super::RuntimeEvent;
-use crate::{api::fio_api::FileIOState, api::mqtt_api::MqttConnection};
+use crate::{
+    api::fio_api::FileIOState,
+    api::mqtt_api::{MqttClientAction, MqttConnection},
+};
 
 #[derive(Deserialize, Clone)]
 pub struct MqttRuntimeConfig {
@@ -30,32 +32,41 @@ pub struct FileIORuntimeConfig {
 
 #[derive(Deserialize, Clone)]
 pub struct ModuleRuntimeConfig {
+    pub on_startup: bool,
     pub mqtt: Option<MqttRuntimeConfig>,
     pub fio: Option<FileIORuntimeConfig>,
 }
 
 #[derive(Deserialize)]
 pub struct ModuleConfig {
+    pub name: String,
     pub runtime: ModuleRuntimeConfig,
     pub wasm_module_path: Box<Path>,
 }
 
 #[derive(Deserialize)]
 pub struct AppConfig {
-    pub modules: HashMap<String, ModuleConfig>,
+    pub modules: Vec<ModuleConfig>,
 }
 
 impl AppConfig {
     pub fn from_app_config_file(path: impl AsRef<Path>) -> anyhow::Result<AppConfig> {
-        let config_file_contents = std::fs::read_to_string(path)?;
+        let config_file_contents = std::fs::read_to_string(&path).with_context(|| {
+            format!(
+                "Could not find app config file at path: {}",
+                path.as_ref().display()
+            )
+        })?;
 
-        Ok(toml::from_str(&config_file_contents)?)
+        Ok(toml::from_str(&config_file_contents).context("Malformed app config")?)
     }
 }
 
 pub struct AsyncMqttRuntime {
     pub mqtt: MqttConnection,
+    pub client: rumqttc::AsyncClient,
     pub event_channel_sender: mpsc::Sender<rumqttc::Event>,
+    pub client_action_receiver: mpsc::Receiver<MqttClientAction>,
     pub event_loop: rumqttc::EventLoop,
 }
 
@@ -80,20 +91,20 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncM
 
     let event_channel_bound: usize = mqtt_config.event_channel_bound.unwrap_or(256).try_into()?;
 
-    let (tx, rx) = mpsc::channel(event_channel_bound);
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
+    let (mqtt_client_action_sender, mqtt_client_action_receiver) =
+        mpsc::channel(event_channel_bound);
+    let (mqtt_event_sender, mqtt_event_receiver) = mpsc::channel(event_channel_bound);
 
     Ok(AsyncMqttRuntime {
         mqtt: MqttConnection::new(
-            client,
-            rx,
+            mqtt_client_action_sender,
+            mqtt_event_receiver,
             mqtt_config.allowed_sub_topics.clone(),
             mqtt_config.allowed_pub_topics.clone(),
-            rt,
         ),
-        event_channel_sender: tx,
+        client,
+        client_action_receiver: mqtt_client_action_receiver,
+        event_channel_sender: mqtt_event_sender,
         event_loop,
     })
 }
@@ -125,8 +136,25 @@ fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<FileIO
     })
 }
 
+async fn handle_client_action_request(
+    client: &rumqttc::AsyncClient,
+    action: MqttClientAction,
+) -> Result<(), rumqttc::ClientError> {
+    match action {
+        MqttClientAction::Publish {
+            topic,
+            qos,
+            retain,
+            payload,
+        } => client.publish(topic, qos, retain, payload).await,
+        MqttClientAction::Subscribe { topic, qos } => client.subscribe(topic, qos).await,
+    }
+}
+
 pub async fn async_mqtt_event_loop_task(
     event_channel_sender: mpsc::Sender<rumqttc::Event>,
+    client: rumqttc::AsyncClient,
+    mut mqtt_client_action_receiver: mpsc::Receiver<MqttClientAction>,
     mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
     mut event_loop: rumqttc::EventLoop,
 ) -> anyhow::Result<()> {
@@ -137,7 +165,7 @@ pub async fn async_mqtt_event_loop_task(
                 if let Err(e) = event_channel_sender.send(notification?).await {
                     return Err(anyhow!("Error sending MQTT notification to event channel: {}", e));
                 }
-            }
+            },
             runtime_event = runtime_event_receiver.recv() => {
                 match runtime_event {
                     None => {
@@ -147,7 +175,15 @@ pub async fn async_mqtt_event_loop_task(
                         RuntimeEvent::RuntimeTaskStop => return Ok(()),
                     }
                 }
-            }
+            },
+            client_action = mqtt_client_action_receiver.recv() => {
+                if let Some(client_action) = client_action {
+                    if let Err(client_error) = handle_client_action_request(&client, client_action).await {
+                        log::error!("Encountered error in mqtt runtime: {}", client_error);
+                    }
+                }
+            },
+            else => { return Ok(()); },
         }
     }
 }

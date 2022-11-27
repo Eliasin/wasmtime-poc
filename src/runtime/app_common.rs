@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use anyhow::Context;
+use std::collections::HashMap;
 
-use wasmtime::{Engine, Linker, Module};
+use wasmtime::{Linker, Module};
 
 use super::{AppConfig, ModuleRuntimeConfig};
 
@@ -18,7 +19,6 @@ pub(super) struct UninitializedModule<C> {
 pub(super) struct InitializedModule<T, C> {
     pub(super) module: Module,
     pub(super) linker: Linker<T>,
-    pub(super) engine: Arc<Engine>,
     pub(super) runtime_config: C,
 }
 
@@ -33,11 +33,11 @@ impl UninitializedAppContext {
                 .modules
                 .iter()
                 .map(
-                    |(module_name, module_config)| -> std::io::Result<(String, UninitializedModule<ModuleRuntimeConfig>)> {
+                    |module_config| -> anyhow::Result<(String, UninitializedModule<ModuleRuntimeConfig>)> {
                         Ok((
-                            module_name.clone(),
+                            module_config.name.clone(),
                             UninitializedModule::<ModuleRuntimeConfig> {
-                                bytes: std::fs::read(&module_config.wasm_module_path)?
+                                bytes: std::fs::read(&module_config.wasm_module_path).with_context(|| format!("Failed to find module file at {}", &module_config.wasm_module_path.display()))?
                                     .into_boxed_slice(),
                                 runtime_config: module_config.runtime.clone(),
                             },
