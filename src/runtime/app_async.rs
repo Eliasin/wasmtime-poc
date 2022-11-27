@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use wasmtime::{Config, Engine, Linker, Module, Store};
 
 use crate::api::{
-    debug_api,
+    debug_api, env_api,
     mqtt_api::{self, MqttClientAction},
 };
 
@@ -53,6 +53,7 @@ impl UninitializedAppContext {
 
                     mqtt_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
                     debug_api::add_to_linker(&mut linker, |s| s)?;
+                    env_api::add_to_linker(&mut linker, |s| s)?;
 
                     Ok((
                         module_name,
@@ -167,11 +168,14 @@ impl InitializedAsyncAppContext {
             }
         }
 
+        let env = module_template.runtime_config.env.clone();
+
         let mut store = Store::new(
             &engine,
             WasmModuleStore {
                 mqtt_connection,
                 fio,
+                env,
             },
         );
 

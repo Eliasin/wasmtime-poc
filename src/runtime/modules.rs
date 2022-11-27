@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context};
 use serde_derive::Deserialize;
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -35,6 +36,7 @@ pub struct ModuleRuntimeConfig {
     pub on_startup: bool,
     pub mqtt: Option<MqttRuntimeConfig>,
     pub fio: Option<FileIORuntimeConfig>,
+    pub env: HashMap<String, String>,
 }
 
 #[derive(Deserialize)]
@@ -77,6 +79,7 @@ pub struct FileIORuntime {
 pub struct WasmModuleStore {
     pub mqtt_connection: Option<MqttConnection>,
     pub fio: Option<FileIOState>,
+    pub env: HashMap<String, String>,
 }
 
 fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncMqttRuntime> {
