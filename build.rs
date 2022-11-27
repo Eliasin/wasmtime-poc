@@ -14,8 +14,12 @@ fn main() -> anyhow::Result<()> {
         fs::create_dir(module_build_dir_path)?;
     }
 
+    // Hacky way to get the file system operations to sync correctly
+    std::thread::sleep(std::time::Duration::from_secs(5));
+
     let mut module_build_threads = vec![];
 
+    println!("cargo:warning=********** Starting Module Build Process **********");
     for module_dir in fs::read_dir("modules/")? {
         let module_dir = match module_dir {
             Ok(module_dir) => module_dir,
@@ -29,6 +33,19 @@ fn main() -> anyhow::Result<()> {
             continue;
         }
 
+        let cargo_path = module_dir.path().join("Cargo.toml");
+        if !cargo_path.exists() || !cargo_path.is_file() {
+            println!(
+                "cargo:warning=> Skipping {} because no 'Cargo.toml' found",
+                module_dir.path().display()
+            );
+            continue;
+        }
+
+        println!(
+            "cargo:warning=> Discovered module at {}",
+            module_dir.path().display()
+        );
         let mut cargo_build_command = {
             let mut c = Command::new("cargo");
             c.args(["build", "--target", "wasm32-unknown-unknown"])
@@ -65,6 +82,11 @@ fn main() -> anyhow::Result<()> {
                 String::from_utf8_lossy(&output.stderr),
             );
         } else {
+            println!(
+                "cargo:warning=Module at {} finished build",
+                module_path.display(),
+            );
+
             let module_package_name = {
                 let module_cargo_toml_file_path = module_path.join(Path::new("Cargo.toml"));
                 let manifest = match Manifest::<Value>::from_path(&module_cargo_toml_file_path) {
@@ -114,7 +136,13 @@ fn main() -> anyhow::Result<()> {
                 ));
             }
 
-            fs::copy(wasm_module_file_path, wasm_module_destination_file_path)?;
+            fs::copy(&wasm_module_file_path, &wasm_module_destination_file_path)?;
+
+            println!(
+                "cargo:warning=Copied module artifact from {} to {}",
+                wasm_module_file_path.display(),
+                wasm_module_destination_file_path.display(),
+            );
         }
     }
 
