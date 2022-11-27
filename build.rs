@@ -1,17 +1,23 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use cargo_toml::{Manifest, Value};
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-fn main() -> anyhow::Result<()> {
+fn build_modules() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=modules/");
     let module_build_dir_path = Path::new("module-build/");
     if module_build_dir_path.exists() {
-        fs::remove_dir_all(module_build_dir_path)?;
+        println!("cargo:warning=Deleting old module build directory...");
+        fs::remove_dir_all(
+            &module_build_dir_path
+                .canonicalize()
+                .context("Failed to canonicalize module directory path")?,
+        )?;
     } else {
-        fs::create_dir(module_build_dir_path)?;
+        fs::create_dir(&module_build_dir_path)?;
     }
 
     // Hacky way to get the file system operations to sync correctly
@@ -20,7 +26,11 @@ fn main() -> anyhow::Result<()> {
     let mut module_build_threads = vec![];
 
     println!("cargo:warning=********** Starting Module Build Process **********");
-    for module_dir in fs::read_dir("modules/")? {
+    for module_dir in fs::read_dir(
+        Path::new("modules/")
+            .canonicalize()
+            .context("Failed to canonicalize module directory path")?,
+    )? {
         let module_dir = match module_dir {
             Ok(module_dir) => module_dir,
             Err(e) => {
@@ -46,12 +56,20 @@ fn main() -> anyhow::Result<()> {
             "cargo:warning=> Discovered module at {}",
             module_dir.path().display()
         );
+
+        let canonical_module_path = module_dir.path().canonicalize().with_context(|| {
+            format!(
+                "Failed canonicalizing module path: {}",
+                module_dir.path().display()
+            )
+        })?;
+
         let mut cargo_build_command = {
             let mut c = Command::new("cargo");
             c.args(["build", "--target", "wasm32-unknown-unknown"])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .current_dir(module_dir.path().canonicalize()?);
+                .current_dir(&canonical_module_path);
             c
         };
 
@@ -60,7 +78,7 @@ fn main() -> anyhow::Result<()> {
             Err(e) => {
                 println!(
                     "cargo:warning=Error starting cargo command for module at {}, error: {:?}",
-                    module_dir.path().canonicalize()?.display(),
+                    canonical_module_path.display(),
                     e
                 );
                 continue;
@@ -72,7 +90,14 @@ fn main() -> anyhow::Result<()> {
     let mut modules: Vec<(PathBuf, String)> = vec![];
 
     for (module_path, module_build_thread_handle) in module_build_threads.into_iter() {
-        let output = module_build_thread_handle.wait_with_output()?;
+        let output = module_build_thread_handle
+            .wait_with_output()
+            .with_context(|| {
+                format!(
+                    "Failed waiting for cargo build command at {}",
+                    module_path.display()
+                )
+            })?;
 
         if !output.status.success() {
             println!(
@@ -136,7 +161,15 @@ fn main() -> anyhow::Result<()> {
                 ));
             }
 
-            fs::copy(&wasm_module_file_path, &wasm_module_destination_file_path)?;
+            fs::copy(&wasm_module_file_path, &wasm_module_destination_file_path).with_context(
+                || {
+                    format!(
+                        "Failed to copy module artifact from {} to {}",
+                        wasm_module_file_path.display(),
+                        wasm_module_destination_file_path.display()
+                    )
+                },
+            )?;
 
             println!(
                 "cargo:warning=Copied module artifact from {} to {}",
@@ -147,4 +180,18 @@ fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn main() {
+    match build_modules() {
+        Ok(_) => {
+            println!("cargo:warning=********** Finished Module Build **********",);
+        }
+        Err(e) => {
+            println!(
+                "cargo:warning=>>>>> Module build aborted after encountering error: {}",
+                e
+            );
+        }
+    }
 }
