@@ -29,6 +29,7 @@ struct AsyncMqttEventLoopTask {
 }
 
 struct AsyncModuleRuntime {
+    store: Store<WasmModuleStore>,
     module_mqtt_event_loop_task_info: Option<AsyncMqttEventLoopTask>,
 }
 
@@ -128,6 +129,7 @@ impl InitializedAsyncAppContext {
             }
         }
 
+        drop(async_module_runtime.store);
         Ok(())
     }
 
@@ -201,6 +203,7 @@ impl InitializedAsyncAppContext {
             };
 
             AsyncModuleRuntime {
+                store,
                 module_mqtt_event_loop_task_info,
             }
         }))

@@ -1,7 +1,6 @@
 use anyhow::anyhow;
 use rumqttc::Incoming;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::error::TryRecvError;
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "./wit-bindgen/apis.wit",
@@ -67,12 +66,13 @@ impl mqtt::Mqtt for MqttConnection {
     ) -> anyhow::Result<()> {
         if self.allowed_pub_topics.contains(&topic.to_string()) {
             self.mqtt_client_action_sender
-                .blocking_send(MqttClientAction::Publish {
+                .send(MqttClientAction::Publish {
                     topic: topic.to_string(),
                     qos: map_qos(qos),
                     retain,
                     payload: payload.to_owned(),
                 })
+                .await
                 .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
 
             Ok(())
@@ -91,10 +91,11 @@ impl mqtt::Mqtt for MqttConnection {
     ) -> anyhow::Result<()> {
         if self.allowed_sub_topics.contains(&topic.to_string()) {
             self.mqtt_client_action_sender
-                .blocking_send(MqttClientAction::Subscribe {
+                .send(MqttClientAction::Subscribe {
                     topic: topic.to_string(),
                     qos: map_qos(qos),
                 })
+                .await
                 .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
 
             Ok(())
@@ -106,38 +107,27 @@ impl mqtt::Mqtt for MqttConnection {
         }
     }
 
-    async fn poll(&mut self) -> anyhow::Result<Vec<Result<mqtt::Event, String>>> {
-        let mut events = vec![];
-
-        loop {
-            match self.mqtt_event_receiver.try_recv() {
-                Ok(notification) => {
-                    use rumqttc::Event;
-                    events.push(match notification {
-                        Event::Incoming(incoming) => match incoming {
-                            Incoming::Publish(publish) => Ok(mqtt::Event::Incoming(
-                                mqtt::IncomingEvent::Publish(mqtt::PublishEvent {
-                                    topic: publish.topic,
-                                    payload: publish.payload.to_vec(),
-                                }),
-                            )),
-                            _ => Err("unsupported event".to_string()),
-                        },
-                        Event::Outgoing(_) => Err("ignored outgoing event".to_string()),
-                    })
-                }
-                Err(err) => match err {
-                    TryRecvError::Empty => break,
-                    TryRecvError::Disconnected => {
-                        return Err(anyhow!(
-                            "Tokio MQTT event channel unexpectedly disconnected"
-                        ))
-                    }
-                },
+    async fn poll(&mut self) -> anyhow::Result<Result<mqtt::Event, String>> {
+        match self.mqtt_event_receiver.recv().await {
+            Some(notification) => {
+                use rumqttc::Event;
+                Ok(match notification {
+                    Event::Incoming(incoming) => match incoming {
+                        Incoming::Publish(publish) => Ok(mqtt::Event::Incoming(
+                            mqtt::IncomingEvent::Publish(mqtt::PublishEvent {
+                                topic: publish.topic,
+                                payload: publish.payload.to_vec(),
+                            }),
+                        )),
+                        _ => Err("unsupported event".to_string()),
+                    },
+                    Event::Outgoing(_) => Err("ignored outgoing event".to_string()),
+                })
             }
+            None => Err(anyhow!(
+                "Tokio MQTT event channel unexpectedly disconnected"
+            )),
         }
-
-        Ok(events)
     }
 }
 
@@ -171,7 +161,7 @@ impl mqtt::Mqtt for Option<MqttConnection> {
         }
     }
 
-    async fn poll(&mut self) -> anyhow::Result<Vec<Result<mqtt::Event, String>>> {
+    async fn poll(&mut self) -> anyhow::Result<Result<mqtt::Event, String>> {
         if let Some(connection) = self {
             connection.poll().await
         } else {

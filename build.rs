@@ -4,6 +4,39 @@ use cargo_toml::{Manifest, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::Duration;
+
+fn wait_for_path_deletion<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let path = path.as_ref();
+    for _ in 1..32 {
+        if path.exists() {
+            std::thread::sleep(Duration::from_millis(1000));
+        } else {
+            return Ok(());
+        }
+    }
+
+    return Err(anyhow!(
+        "Timed out waiting for {} to be deleted",
+        path.display()
+    ));
+}
+
+fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
+    let path = path.as_ref();
+    for _ in 1..32 {
+        if !path.exists() {
+            std::thread::sleep(Duration::from_millis(1000));
+        } else {
+            return Ok(());
+        }
+    }
+
+    return Err(anyhow!(
+        "Timed out waiting for {} to be created",
+        path.display()
+    ));
+}
 
 fn build_modules() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
@@ -16,12 +49,11 @@ fn build_modules() -> anyhow::Result<()> {
                 .canonicalize()
                 .context("Failed to canonicalize module directory path")?,
         )?;
+        wait_for_path_deletion(module_build_dir_path)?;
     } else {
         fs::create_dir(&module_build_dir_path)?;
+        wait_for_path_creation(module_build_dir_path)?;
     }
-
-    // Hacky way to get the file system operations to sync correctly
-    std::thread::sleep(std::time::Duration::from_secs(2));
 
     let mut module_build_threads = vec![];
 
@@ -153,13 +185,7 @@ fn build_modules() -> anyhow::Result<()> {
                 .join(adjusted_module_package_name.clone())
                 .with_extension("wasm");
 
-            if !wasm_module_file_path.exists() {
-                return Err(anyhow!(
-                    "WASM module file for module name {} at path {} could not be found",
-                    adjusted_module_package_name,
-                    wasm_module_file_path.display()
-                ));
-            }
+            wait_for_path_creation(&wasm_module_file_path)?;
 
             fs::copy(&wasm_module_file_path, &wasm_module_destination_file_path).with_context(
                 || {

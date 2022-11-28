@@ -67,7 +67,7 @@ interface mqtt {
         outgoing(outgoing-event),
     }
 
-    poll: func() -> list<result<event, string>>
+    poll: func() -> result<event, string>
 }
 
 interface fio {
