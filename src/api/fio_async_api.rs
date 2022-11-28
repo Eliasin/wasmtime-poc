@@ -10,6 +10,8 @@ wit_bindgen_host_wasmtime_rust::generate!({
     async: true,
 });
 
+pub use fio::add_to_linker;
+
 pub struct FileIOState {
     allowed_write_files: Vec<PathBuf>,
     allowed_write_directories: Vec<PathBuf>,

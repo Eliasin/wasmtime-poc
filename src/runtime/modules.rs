@@ -9,8 +9,8 @@ use tokio::sync::mpsc;
 
 use super::RuntimeEvent;
 use crate::{
-    api::fio_api::FileIOState,
-    api::mqtt_api::{MqttClientAction, MqttConnection},
+    api::fio_async_api::FileIOState,
+    api::mqtt_async_api::{MqttClientAction, MqttConnection},
 };
 
 #[derive(Deserialize, Clone)]

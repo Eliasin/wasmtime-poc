@@ -8,8 +8,8 @@ use wasmtime::{
 };
 
 use crate::api::{
-    debug_api, env_api,
-    mqtt_api::{self, MqttClientAction},
+    debug_async_api, env_async_api,
+    mqtt_async_api::{self, MqttClientAction},
 };
 
 wit_bindgen_host_wasmtime_rust::generate!({
@@ -62,9 +62,9 @@ impl UninitializedAppContext {
 
                     let compiled_module = Component::from_binary(&engine, &module.bytes)?;
 
-                    mqtt_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
-                    debug_api::add_to_linker(&mut linker, |s| s)?;
-                    env_api::add_to_linker(&mut linker, |s| s)?;
+                    mqtt_async_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
+                    debug_async_api::add_to_linker(&mut linker, |s| s)?;
+                    env_async_api::add_to_linker(&mut linker, |s| s)?;
 
                     Ok((
                         module_name,
