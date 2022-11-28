@@ -1,8 +1,12 @@
+use anyhow::anyhow;
 use rumqttc::Incoming;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
-use wit_bindgen_host_wasmtime_rust::export;
-export!("./wit-bindgen/mqtt.wit");
+
+wit_bindgen_host_wasmtime_rust::generate!({
+    path: "./wit-bindgen/apis.wit",
+    async: true,
+});
 
 pub use mqtt::add_to_linker;
 
@@ -52,14 +56,15 @@ fn map_qos(qos: mqtt::QualityOfService) -> rumqttc::QoS {
     }
 }
 
+#[wit_bindgen_host_wasmtime_rust::async_trait]
 impl mqtt::Mqtt for MqttConnection {
-    fn publish_sync(
+    async fn publish(
         &mut self,
-        topic: &str,
+        topic: String,
         qos: mqtt::QualityOfService,
         retain: bool,
-        payload: &[u8],
-    ) -> Result<(), String> {
+        payload: Vec<u8>,
+    ) -> anyhow::Result<()> {
         if self.allowed_pub_topics.contains(&topic.to_string()) {
             self.mqtt_client_action_sender
                 .blocking_send(MqttClientAction::Publish {
@@ -68,36 +73,40 @@ impl mqtt::Mqtt for MqttConnection {
                     retain,
                     payload: payload.to_owned(),
                 })
-                .map_err(|e| format!("error sending event to mqtt runtime: {}", e))?;
+                .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
 
             Ok(())
         } else {
-            Err(format!(
+            Err(anyhow!(
                 "publish to topic '{}' not allowed by config policy",
                 topic
             ))
         }
     }
 
-    fn subscribe_sync(&mut self, topic: &str, qos: mqtt::QualityOfService) -> Result<(), String> {
+    async fn subscribe(
+        &mut self,
+        topic: String,
+        qos: mqtt::QualityOfService,
+    ) -> anyhow::Result<()> {
         if self.allowed_sub_topics.contains(&topic.to_string()) {
             self.mqtt_client_action_sender
                 .blocking_send(MqttClientAction::Subscribe {
                     topic: topic.to_string(),
                     qos: map_qos(qos),
                 })
-                .map_err(|e| format!("error sending event to mqtt runtime: {}", e))?;
+                .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
 
             Ok(())
         } else {
-            Err(format!(
+            Err(anyhow!(
                 "subscribe to topic '{}' not allowed by config policy",
                 topic
             ))
         }
     }
 
-    fn poll_sync(&mut self) -> Result<Vec<Result<mqtt::Event, String>>, String> {
+    async fn poll(&mut self) -> anyhow::Result<Vec<Result<mqtt::Event, String>>> {
         let mut events = vec![];
 
         loop {
@@ -120,7 +129,9 @@ impl mqtt::Mqtt for MqttConnection {
                 Err(err) => match err {
                     TryRecvError::Empty => break,
                     TryRecvError::Disconnected => {
-                        return Err("Tokio MQTT event channel unexpectedly disconnected".to_string())
+                        return Err(anyhow!(
+                            "Tokio MQTT event channel unexpectedly disconnected"
+                        ))
                     }
                 },
             }
@@ -130,34 +141,41 @@ impl mqtt::Mqtt for MqttConnection {
     }
 }
 
+#[wit_bindgen_host_wasmtime_rust::async_trait]
 impl mqtt::Mqtt for Option<MqttConnection> {
-    fn publish_sync(
+    async fn publish(
         &mut self,
-        topic: &str,
+        topic: String,
         qos: mqtt::QualityOfService,
         retain: bool,
-        payload: &[u8],
-    ) -> Result<(), String> {
+        payload: Vec<u8>,
+    ) -> anyhow::Result<()> {
         if let Some(connection) = self {
-            connection.publish_sync(topic, qos, retain, payload)
+            connection.publish(topic, qos, retain, payload).await?;
+            Ok(())
         } else {
-            Err("Module does not have configured mqtt runtime".to_string())
+            Err(anyhow!("Module does not have configured mqtt runtime"))
         }
     }
 
-    fn subscribe_sync(&mut self, topic: &str, qos: mqtt::QualityOfService) -> Result<(), String> {
+    async fn subscribe(
+        &mut self,
+        topic: String,
+        qos: mqtt::QualityOfService,
+    ) -> anyhow::Result<()> {
         if let Some(connection) = self {
-            connection.subscribe_sync(topic, qos)
+            connection.subscribe(topic, qos).await?;
+            Ok(())
         } else {
-            Err("Module does not have configured mqtt runtime".to_string())
+            Err(anyhow!("Module does not have configured mqtt runtime"))
         }
     }
 
-    fn poll_sync(&mut self) -> Result<Vec<Result<mqtt::Event, String>>, String> {
+    async fn poll(&mut self) -> anyhow::Result<Vec<Result<mqtt::Event, String>>> {
         if let Some(connection) = self {
-            connection.poll_sync()
+            connection.poll().await
         } else {
-            Err("Module does not have configured mqtt runtime".to_string())
+            Err(anyhow!("Module does not have configured mqtt runtime"))
         }
     }
 }

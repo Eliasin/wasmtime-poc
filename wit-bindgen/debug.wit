@@ -1,5 +1,0 @@
-trace: func(msg: string)
-debug: func(msg: string)
-info: func(msg: string)
-warn: func(msg: string)
-error: func(msg: string)

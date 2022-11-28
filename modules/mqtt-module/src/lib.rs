@@ -1,13 +1,15 @@
-use wit_bindgen_guest_rust::import;
+wit_bindgen_guest_rust::generate!("../../wit-bindgen/apis.wit");
 
-import!("../../wit-bindgen/env.wit");
-import!("../../wit-bindgen/debug.wit");
+struct Start;
 
-#[no_mangle]
-pub extern "C" fn start() {
-    debug::warn("STARTED");
+export_apis!(Start);
 
-    let instance_name = env::get_val("instance_name");
+impl apis::Apis for Start {
+    fn start() -> Result<(), String> {
+        let instance_name = env::get_val("instance_name");
 
-    // debug::warn(format!("INSTANCE NAME {:?}", instance_name).as_str());
+        debug::warn(format!("INSTANCE NAME {:?}", instance_name).as_str());
+
+        Ok(())
+    }
 }

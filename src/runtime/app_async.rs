@@ -2,12 +2,20 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::sync::mpsc;
-use wasmtime::{Config, Engine, Linker, Module, Store};
+use wasmtime::{
+    component::{Component, Linker},
+    Config, Engine, Store,
+};
 
 use crate::api::{
     debug_api, env_api,
     mqtt_api::{self, MqttClientAction},
 };
+
+wit_bindgen_host_wasmtime_rust::generate!({
+    path: "./wit-bindgen/apis.wit",
+    async: true,
+});
 
 use super::{
     async_mqtt_event_loop_task, initialize_async_mqtt_for_module, initialize_fio_for_module,
@@ -32,7 +40,10 @@ pub struct InitializedAsyncAppContext {
 impl UninitializedAppContext {
     pub fn async_initialize_modules(self) -> anyhow::Result<InitializedAsyncAppContext> {
         let mut engine_config = Config::new();
-        engine_config.async_support(true).epoch_interruption(true);
+        engine_config
+            .async_support(true)
+            .epoch_interruption(true)
+            .wasm_component_model(true);
 
         let engine = Arc::new(Engine::new(&engine_config)?);
 
@@ -49,7 +60,7 @@ impl UninitializedAppContext {
                 )> {
                     let mut linker = Linker::<WasmModuleStore>::new(&engine);
 
-                    let compiled_module = Module::from_binary(&engine, &module.bytes)?;
+                    let compiled_module = Component::from_binary(&engine, &module.bytes)?;
 
                     mqtt_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
                     debug_api::add_to_linker(&mut linker, |s| s)?;
@@ -180,14 +191,12 @@ impl InitializedAsyncAppContext {
         );
 
         store.epoch_deadline_async_yield_and_update(10);
-        let instance = module_template
-            .linker
-            .instantiate_async(&mut store, &module_template.module)
-            .await?;
-        let wasm_entrypoint = instance.get_typed_func::<(), (), _>(&mut store, "start")?;
+        let (exports, _) =
+            Apis::instantiate_async(&mut store, &module_template.module, &module_template.linker)
+                .await?;
 
         Ok(tokio::spawn(async move {
-            if let Err(err) = wasm_entrypoint.call_async(store, ()).await {
+            if let Err(err) = exports.start(&mut store).await {
                 log::warn!("Trap occurred in WASM module task, {:?}", err);
             };
 

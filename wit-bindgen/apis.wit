@@ -1,0 +1,102 @@
+interface env {
+    get-val: func(var-name: string) -> option<string>
+}
+
+interface channels {
+    emit: func(channel-name: string, event: string)
+    poll: func(channel-name: string) -> list<string>
+}
+
+interface debug {
+    trace: func(msg: string)
+    debug: func(msg: string)
+    info: func(msg: string)
+    warn: func(msg: string)
+    error: func(msg: string)
+}
+
+interface mqtt {
+    variant quality-of-service {
+        at-most-once,
+        at-least-once,
+        exactly-once,
+    }
+
+    publish: func(topic: string, qos: quality-of-service, retain: bool, payload: list<u8>)
+
+    subscribe: func(topic: string, qos: quality-of-service)
+
+    record publish-event {
+        topic: string,
+        payload: list<u8>,
+    }
+
+    variant incoming-event {
+        connect,
+        conn-ack,
+        publish(publish-event),
+        pub-ack,
+        pub-rec,
+        pub-rel,
+        pub-comp,
+        subscribe,
+        sub-ack,
+        unsubscribe,
+        unsub-ack,
+        ping-req,
+        ping-resp,
+        disconnect,
+    }
+
+    variant outgoing-event {
+        publish(u16),
+        subscribe(u16),
+        unsubscribe(u16),
+        pub-ack(u16),
+        pub-rec(u16),
+        pub-rel(u16),
+        pub-comp(u16),
+        ping-req,
+        ping-resp,
+        disconnect,
+        await-ack(u16),
+    }
+
+    variant event {
+        incoming(incoming-event),
+        outgoing(outgoing-event),
+    }
+
+    poll: func() -> list<result<event, string>>
+}
+
+interface fio {
+    variant seek-motion {
+    from-start(u64),
+    from-end(s64),
+    forwards(s64),
+    backwards(s64),
+    }
+
+    read-bytes: func(file-path: string, num-bytes: u64) -> list<u8>
+
+    seek-bytes: func(file-path: string, seek-motion: seek-motion) -> u64
+
+    write-bytes: func(file-path: string, buffer: list<u8>)
+
+    append-bytes: func(file-path: string, buffer: list<u8>)
+}
+
+interface start {
+    start: func() -> result<_, string>
+}
+
+world apis {
+    import env: env
+    import debug: debug
+    import mqtt: mqtt
+    import channels: channels
+    import fio: fio
+
+    default export start
+}

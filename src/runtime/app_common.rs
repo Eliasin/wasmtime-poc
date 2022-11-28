@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::collections::HashMap;
 
-use wasmtime::{Linker, Module};
+use wasmtime::component::{Component, Linker};
 
 use super::{AppConfig, ModuleRuntimeConfig};
 
@@ -15,9 +15,8 @@ pub(super) struct UninitializedModule<C> {
     pub(super) runtime_config: C,
 }
 
-#[derive(Clone)]
-pub(super) struct InitializedModule<T, C> {
-    pub(super) module: Module,
+pub(super) struct InitializedModule<T, C: Clone> {
+    pub(super) module: Component,
     pub(super) linker: Linker<T>,
     pub(super) runtime_config: C,
 }

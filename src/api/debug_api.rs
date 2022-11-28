@@ -1,29 +1,41 @@
-use wit_bindgen_host_wasmtime_rust::export;
+use crate::runtime::WasmModuleStore;
 
-export!("./wit-bindgen/debug.wit");
+wit_bindgen_host_wasmtime_rust::generate!({
+    path: "./wit-bindgen/apis.wit",
+    async: true,
+});
 
 pub use debug::add_to_linker;
 
-use crate::runtime::WasmModuleStore;
-
+#[wit_bindgen_host_wasmtime_rust::async_trait]
 impl debug::Debug for WasmModuleStore {
-    fn trace(&mut self, msg: &str) {
+    async fn trace(&mut self, msg: String) -> anyhow::Result<()> {
         log::trace!("{}", msg);
+
+        Ok(())
     }
 
-    fn debug(&mut self, msg: &str) {
+    async fn debug(&mut self, msg: String) -> anyhow::Result<()> {
         log::debug!("{}", msg);
+
+        Ok(())
     }
 
-    fn info(&mut self, msg: &str) {
+    async fn info(&mut self, msg: String) -> anyhow::Result<()> {
         log::info!("{}", msg);
+
+        Ok(())
     }
 
-    fn warn(&mut self, msg: &str) {
-        log::warn!("{}", msg)
+    async fn warn(&mut self, msg: String) -> anyhow::Result<()> {
+        log::warn!("{}", msg);
+
+        Ok(())
     }
 
-    fn error(&mut self, msg: &str) {
-        log::error!("{}", msg)
+    async fn error(&mut self, msg: String) -> anyhow::Result<()> {
+        log::error!("{}", msg);
+
+        Ok(())
     }
 }

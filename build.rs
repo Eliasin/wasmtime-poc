@@ -21,7 +21,7 @@ fn build_modules() -> anyhow::Result<()> {
     }
 
     // Hacky way to get the file system operations to sync correctly
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     let mut module_build_threads = vec![];
 
@@ -175,6 +175,86 @@ fn build_modules() -> anyhow::Result<()> {
                 "cargo:warning=Copied module artifact from {} to {}",
                 wasm_module_file_path.display(),
                 wasm_module_destination_file_path.display(),
+            );
+        }
+    }
+
+    let mut wasm_tools_threads = vec![];
+
+    // Hacky way to get the file system operations to sync correctly
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
+    let module_build_path = Path::new("module-build/")
+        .canonicalize()
+        .context("Failed to canonicalize module directory path")?;
+
+    for module_file in fs::read_dir(&module_build_path)? {
+        let module_file = match module_file {
+            Ok(module_file) => module_file.path(),
+            Err(e) => {
+                println!(
+                    "cargo:warning=Error traversing module-build directory: {:?}",
+                    e
+                );
+                continue;
+            }
+        };
+
+        let module_file_name = match module_file.file_name() {
+            Some(module_file_name) => module_file_name,
+
+            None => continue,
+        };
+
+        let mut wasm_tools_command = {
+            let mut c = Command::new("wasm-tools");
+            c.arg("component")
+                .arg("new")
+                .arg(module_file_name)
+                .arg("-o")
+                .arg(module_file_name)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .current_dir(&module_build_path);
+            c
+        };
+
+        let command_thread_handle = match wasm_tools_command.spawn() {
+            Ok(command_thread_handle) => command_thread_handle,
+            Err(e) => {
+                println!(
+                    "cargo:warning=Error starting wasm-tools command for module at {}, error: {:?}",
+                    module_file.display(),
+                    e
+                );
+                continue;
+            }
+        };
+
+        wasm_tools_threads.push((module_file, command_thread_handle));
+    }
+
+    for (module_file, wasm_tools_thread_handle) in wasm_tools_threads.into_iter() {
+        let output = wasm_tools_thread_handle
+            .wait_with_output()
+            .with_context(|| {
+                format!(
+                    "Failed waiting for wasm-tools command at {}",
+                    module_file.display()
+                )
+            })?;
+
+        if !output.status.success() {
+            println!(
+                "cargo:warning=Module {} component build was unsuccessful, output: {}, err: {}",
+                module_file.display(),
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr),
+            );
+        } else {
+            println!(
+                "cargo:warning=Module at {} finished component-ification",
+                module_file.display(),
             );
         }
     }

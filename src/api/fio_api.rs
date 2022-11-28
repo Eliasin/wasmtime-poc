@@ -1,12 +1,14 @@
+use anyhow::{anyhow, Context};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
-use wit_bindgen_host_wasmtime_rust::export;
-
-export!("./wit-bindgen/fio.wit");
+wit_bindgen_host_wasmtime_rust::generate!({
+    path: "./wit-bindgen/apis.wit",
+    async: true,
+});
 
 pub struct FileIOState {
     allowed_write_files: Vec<PathBuf>,
@@ -46,13 +48,15 @@ fn is_file_operation_allowed(
             .any(|f| file_path.as_ref().starts_with(f))
 }
 
+#[wit_bindgen_host_wasmtime_rust::async_trait]
 impl fio::Fio for FileIOState {
-    fn read_bytes(&mut self, file_path: &str, num_bytes: u64) -> Result<Vec<u8>, String> {
-        let path = fs::canonicalize(file_path).map_err(|_| format!("IO Error"))?;
-        let num_bytes: usize = num_bytes.try_into().map_err(|e| {
+    async fn read_bytes(&mut self, file_path: String, num_bytes: u64) -> anyhow::Result<Vec<u8>> {
+        let path = fs::canonicalize(file_path).map_err(|_| anyhow!("Missing permissions"))?;
+        let num_bytes: usize = num_bytes.try_into().with_context(|| {
             format!(
-                "Error while converting requested num_bytes into usize: {}",
-                e
+                "num_bytes requested '{}' exceeds host usize max {}",
+                num_bytes,
+                usize::MAX
             )
         })?;
 
@@ -66,7 +70,7 @@ impl fio::Fio for FileIOState {
             let mut file = match self.open_file_handles.get(&path) {
                 Some(f) => f,
                 None => {
-                    let f = File::open(path.clone()).map_err(|e| e.to_string())?;
+                    let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
                     &self
                         .open_file_handles
@@ -74,16 +78,19 @@ impl fio::Fio for FileIOState {
                         .expect("Value was just inserted")
                 }
             };
-            file.read(&mut buff[0..num_bytes])
-                .map_err(|e| e.to_string())?;
+            file.read(&mut buff[0..num_bytes])?;
         } else {
-            return Err("IO Error".to_string());
+            return Err(anyhow!("Missing permissions"));
         }
         Ok(buff)
     }
 
-    fn seek_bytes(&mut self, file_path: &str, seek_motion: fio::SeekMotion) -> Result<u64, String> {
-        let path = fs::canonicalize(file_path).map_err(|_| "IO Error")?;
+    async fn seek_bytes(
+        &mut self,
+        file_path: String,
+        seek_motion: fio::SeekMotion,
+    ) -> anyhow::Result<u64> {
+        let path = fs::canonicalize(file_path).map_err(|_| anyhow!("Missing permissions"))?;
         if is_file_operation_allowed(
             &path,
             &self.allowed_read_directories,
@@ -92,7 +99,7 @@ impl fio::Fio for FileIOState {
             let mut file = match self.open_file_handles.get(&path) {
                 Some(f) => f,
                 None => {
-                    let f = File::open(path.clone()).map_err(|e| e.to_string())?;
+                    let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
                     &self
                         .open_file_handles
@@ -101,26 +108,18 @@ impl fio::Fio for FileIOState {
                 }
             };
             Ok(match seek_motion {
-                fio::SeekMotion::FromStart(amt) => {
-                    file.seek(SeekFrom::Start(amt)).map_err(|e| e.to_string())?
-                }
-                fio::SeekMotion::FromEnd(amt) => {
-                    file.seek(SeekFrom::End(amt)).map_err(|e| e.to_string())?
-                }
-                fio::SeekMotion::Forwards(amt) => file
-                    .seek(SeekFrom::Current(amt))
-                    .map_err(|e| e.to_string())?,
-                fio::SeekMotion::Backwards(amt) => file
-                    .seek(SeekFrom::Current(amt))
-                    .map_err(|e| e.to_string())?,
+                fio::SeekMotion::FromStart(bytes) => file.seek(SeekFrom::Start(bytes))?,
+                fio::SeekMotion::FromEnd(bytes) => file.seek(SeekFrom::End(bytes))?,
+                fio::SeekMotion::Forwards(bytes) => file.seek(SeekFrom::Current(bytes))?,
+                fio::SeekMotion::Backwards(bytes) => file.seek(SeekFrom::Current(bytes))?,
             })
         } else {
-            return Err("File not allowed to be read".to_string());
+            return Err(anyhow!("Missing permissions"));
         }
     }
 
-    fn write_bytes(&mut self, file_path: &str, buffer: &[u8]) -> Result<(), String> {
-        let path = fs::canonicalize(file_path).map_err(|_| "IO Error")?;
+    async fn write_bytes(&mut self, file_path: String, buffer: Vec<u8>) -> anyhow::Result<()> {
+        let path = fs::canonicalize(file_path).map_err(|_| anyhow!("Missing permissions"))?;
         if is_file_operation_allowed(
             &path,
             &self.allowed_write_directories,
@@ -129,7 +128,7 @@ impl fio::Fio for FileIOState {
             let mut file = match self.open_file_handles.get(&path) {
                 Some(f) => f,
                 None => {
-                    let f = File::open(path.clone()).map_err(|e| e.to_string())?;
+                    let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
                     &self
                         .open_file_handles
@@ -137,14 +136,15 @@ impl fio::Fio for FileIOState {
                         .expect("Value was just inserted")
                 }
             };
-            file.write_all(buffer).map_err(|e| e.to_string())
+            file.write_all(&buffer)?;
+            Ok(())
         } else {
-            return Err("IO Error".to_string());
+            return Err(anyhow!("Missing permissions"));
         }
     }
 
-    fn append_bytes(&mut self, file_path: &str, buffer: &[u8]) -> Result<(), String> {
-        let path = fs::canonicalize(file_path).map_err(|_| "IO Error")?;
+    async fn append_bytes(&mut self, file_path: String, buffer: Vec<u8>) -> anyhow::Result<()> {
+        let path = fs::canonicalize(file_path).map_err(|_| anyhow!("Missing permissions"))?;
         if is_file_operation_allowed(
             &path,
             &self.allowed_write_directories,
@@ -153,7 +153,7 @@ impl fio::Fio for FileIOState {
             let mut file = match self.open_file_handles.get(&path) {
                 Some(f) => f,
                 None => {
-                    let f = File::open(path.clone()).map_err(|e| e.to_string())?;
+                    let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
                     &self
                         .open_file_handles
@@ -161,10 +161,12 @@ impl fio::Fio for FileIOState {
                         .expect("Value was just inserted")
                 }
             };
-            file.seek(SeekFrom::End(0)).map_err(|e| e.to_string())?;
-            file.write_all(buffer).map_err(|e| e.to_string())
+            file.seek(SeekFrom::End(0))?;
+            file.write_all(&buffer)?;
+
+            Ok(())
         } else {
-            return Err("File not allowed to be written to".to_string());
+            return Err(anyhow!("Missing permissions"));
         }
     }
 }
