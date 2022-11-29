@@ -50,12 +50,13 @@ impl mqtt::Mqtt for MqttConnection {
         qos: mqtt::QualityOfService,
         retain: bool,
         payload: Vec<u8>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Result<(), String>> {
         if self.allowed_pub_topics.contains(&topic.to_string()) {
-            self.mqtt_client
+            Ok(self
+                .mqtt_client
                 .publish(topic, map_qos(qos), retain, payload)
-                .await?;
-            Ok(())
+                .await
+                .map_err(|e| format!("MQTT Error: {}", e)))
         } else {
             Err(anyhow!(
                 "publish to topic '{}' not allowed by config policy",
@@ -68,11 +69,13 @@ impl mqtt::Mqtt for MqttConnection {
         &mut self,
         topic: String,
         qos: mqtt::QualityOfService,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Result<(), String>> {
         if self.allowed_sub_topics.contains(&topic.to_string()) {
-            self.mqtt_client.subscribe(topic, map_qos(qos)).await?;
-
-            Ok(())
+            Ok(self
+                .mqtt_client
+                .subscribe(topic, map_qos(qos))
+                .await
+                .map_err(|e| format!("MQTT Error: {}", e)))
         } else {
             Err(anyhow!(
                 "subscribe to topic '{}' not allowed by config policy",
@@ -87,15 +90,12 @@ impl mqtt::Mqtt for MqttConnection {
                 use rumqttc::Event;
                 Ok(match notification {
                     Event::Incoming(incoming) => match incoming {
-                        Incoming::Publish(publish) => {
-                            log::error!("DEBUG!!! {:?}", publish);
-                            Ok(mqtt::Event::Incoming(mqtt::IncomingEvent::Publish(
-                                mqtt::PublishEvent {
-                                    topic: publish.topic,
-                                    payload: publish.payload.to_vec(),
-                                },
-                            )))
-                        }
+                        Incoming::Publish(publish) => Ok(mqtt::Event::Incoming(
+                            mqtt::IncomingEvent::Publish(mqtt::PublishEvent {
+                                topic: publish.topic,
+                                payload: publish.payload.to_vec(),
+                            }),
+                        )),
                         _ => Err("unsupported event".to_string()),
                     },
                     Event::Outgoing(_) => Err("ignored outgoing event".to_string()),
@@ -116,10 +116,9 @@ impl mqtt::Mqtt for Option<MqttConnection> {
         qos: mqtt::QualityOfService,
         retain: bool,
         payload: Vec<u8>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Result<(), String>> {
         if let Some(connection) = self {
-            connection.publish(topic, qos, retain, payload).await?;
-            Ok(())
+            connection.publish(topic, qos, retain, payload).await
         } else {
             Err(anyhow!("Module does not have configured mqtt runtime"))
         }
@@ -129,10 +128,9 @@ impl mqtt::Mqtt for Option<MqttConnection> {
         &mut self,
         topic: String,
         qos: mqtt::QualityOfService,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Result<(), String>> {
         if let Some(connection) = self {
-            connection.subscribe(topic, qos).await?;
-            Ok(())
+            connection.subscribe(topic, qos).await
         } else {
             Err(anyhow!("Module does not have configured mqtt runtime"))
         }

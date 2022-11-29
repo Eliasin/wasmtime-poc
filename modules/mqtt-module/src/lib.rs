@@ -7,12 +7,12 @@ export_apis!(Start);
 use mqtt::QualityOfService as QoS;
 
 fn instance_a() -> Result<(), String> {
-    mqtt::subscribe("hello/mqttA", mqtt::QualityOfService::ExactlyOnce);
+    mqtt::subscribe("hello/mqttA", mqtt::QualityOfService::ExactlyOnce)?;
 
     for i in 0..10 {
         debug::warn(format!("Instance A sending {}", i).as_str());
         util::sleep(1000);
-        mqtt::publish("hello/mqttB", QoS::ExactlyOnce, false, &[i]);
+        mqtt::publish("hello/mqttB", QoS::ExactlyOnce, false, &[i])?;
 
         loop {
             match mqtt::poll() {
@@ -32,13 +32,13 @@ fn instance_a() -> Result<(), String> {
         }
     }
 
-    debug::info("****** Instance A finished execution ******");
+    debug::warn("****** Instance A finished execution ******");
 
     Ok(())
 }
 
 fn instance_b() -> Result<(), String> {
-    mqtt::subscribe("hello/mqttB", mqtt::QualityOfService::ExactlyOnce);
+    mqtt::subscribe("hello/mqttB", mqtt::QualityOfService::ExactlyOnce)?;
 
     for i in 0..10 {
         loop {
@@ -57,7 +57,7 @@ fn instance_b() -> Result<(), String> {
                             );
 
                             util::sleep(1000);
-                            mqtt::publish("hello/mqttA", QoS::ExactlyOnce, false, &event.payload);
+                            mqtt::publish("hello/mqttA", QoS::ExactlyOnce, false, &event.payload)?;
                             break;
                         }
                     }

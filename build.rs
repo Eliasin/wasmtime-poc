@@ -10,7 +10,7 @@ fn wait_for_path_deletion<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     for _ in 1..32 {
         if path.exists() {
-            std::thread::sleep(Duration::from_millis(2000));
+            std::thread::sleep(Duration::from_millis(500));
         } else {
             return Ok(());
         }
@@ -26,7 +26,7 @@ fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     for _ in 1..32 {
         if !path.exists() {
-            std::thread::sleep(Duration::from_millis(2000));
+            std::thread::sleep(Duration::from_millis(500));
         } else {
             return Ok(());
         }
@@ -50,6 +50,8 @@ fn build_modules() -> anyhow::Result<()> {
                 .context("Failed to canonicalize module directory path")?,
         )?;
         wait_for_path_deletion(module_build_dir_path)?;
+        fs::create_dir(&module_build_dir_path)?;
+        wait_for_path_creation(module_build_dir_path)?;
     } else {
         fs::create_dir(&module_build_dir_path)?;
         wait_for_path_creation(module_build_dir_path)?;

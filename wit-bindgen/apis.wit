@@ -22,9 +22,9 @@ interface mqtt {
         exactly-once,
     }
 
-    publish: func(topic: string, qos: quality-of-service, retain: bool, payload: list<u8>)
+    publish: func(topic: string, qos: quality-of-service, retain: bool, payload: list<u8>) -> result<_, string>
 
-    subscribe: func(topic: string, qos: quality-of-service)
+    subscribe: func(topic: string, qos: quality-of-service) -> result<_, string>
 
     record publish-event {
         topic: string,
