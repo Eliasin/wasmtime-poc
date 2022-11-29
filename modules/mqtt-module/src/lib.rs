@@ -10,12 +10,9 @@ fn instance_a() -> Result<(), String> {
     mqtt::subscribe("hello/mqttA", mqtt::QualityOfService::ExactlyOnce);
 
     for i in 0..10 {
-        mqtt::publish(
-            "hello/mqttB",
-            QoS::ExactlyOnce,
-            true,
-            format!("{}", i).as_bytes(),
-        );
+        debug::warn(format!("Instance A sending {}", i).as_str());
+        util::sleep(1000);
+        mqtt::publish("hello/mqttB", QoS::ExactlyOnce, false, &[i]);
 
         loop {
             match mqtt::poll() {
@@ -23,12 +20,8 @@ fn instance_a() -> Result<(), String> {
                     if let mqtt::Event::Incoming(event) = event {
                         if let mqtt::IncomingEvent::Publish(event) = event {
                             debug::warn(
-                                format!(
-                                    "Instance A received {}, i = {}",
-                                    String::from_utf8_lossy(&event.payload),
-                                    i
-                                )
-                                .as_str(),
+                                format!("Instance A received {:?}, i = {}", &event.payload, i)
+                                    .as_str(),
                             );
                             break;
                         }
@@ -39,7 +32,7 @@ fn instance_a() -> Result<(), String> {
         }
     }
 
-    debug::info("Instance A finished execution");
+    debug::info("****** Instance A finished execution ******");
 
     Ok(())
 }
@@ -54,21 +47,17 @@ fn instance_b() -> Result<(), String> {
                     if let mqtt::Event::Incoming(event) = event {
                         if let mqtt::IncomingEvent::Publish(event) = event {
                             debug::warn(
-                                format!(
-                                    "Instance B received {}, i = {}",
-                                    String::from_utf8_lossy(&event.payload),
-                                    i
-                                )
-                                .as_str(),
+                                format!("Instance B received {:?}, i = {}", &event.payload, i)
+                                    .as_str(),
                             );
 
-                            mqtt::publish(
-                                "hello/mqttA",
-                                QoS::ExactlyOnce,
-                                true,
-                                format!("Received {}", String::from_utf8_lossy(&event.payload))
-                                    .as_bytes(),
+                            debug::warn(
+                                format!("Instance B sending {:?}, i = {}", &event.payload, i)
+                                    .as_str(),
                             );
+
+                            util::sleep(1000);
+                            mqtt::publish("hello/mqttA", QoS::ExactlyOnce, false, &event.payload);
                             break;
                         }
                     }
@@ -78,7 +67,7 @@ fn instance_b() -> Result<(), String> {
         }
     }
 
-    debug::warn("Instance B finished execution");
+    debug::warn("****** Instance B finished execution *****");
 
     Ok(())
 }

@@ -9,21 +9,8 @@ wit_bindgen_host_wasmtime_rust::generate!({
 
 pub use mqtt::add_to_linker;
 
-pub enum MqttClientAction {
-    Publish {
-        topic: String,
-        qos: rumqttc::QoS,
-        retain: bool,
-        payload: Vec<u8>,
-    },
-    Subscribe {
-        topic: String,
-        qos: rumqttc::QoS,
-    },
-}
-
 pub struct MqttConnection {
-    mqtt_client_action_sender: mpsc::Sender<MqttClientAction>,
+    mqtt_client: rumqttc::AsyncClient,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
@@ -31,13 +18,13 @@ pub struct MqttConnection {
 
 impl MqttConnection {
     pub fn new(
-        mqtt_client_action_sender: mpsc::Sender<MqttClientAction>,
+        mqtt_client: rumqttc::AsyncClient,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
     ) -> MqttConnection {
         MqttConnection {
-            mqtt_client_action_sender,
+            mqtt_client,
             mqtt_event_receiver,
             allowed_sub_topics,
             allowed_pub_topics,
@@ -65,16 +52,9 @@ impl mqtt::Mqtt for MqttConnection {
         payload: Vec<u8>,
     ) -> anyhow::Result<()> {
         if self.allowed_pub_topics.contains(&topic.to_string()) {
-            self.mqtt_client_action_sender
-                .send(MqttClientAction::Publish {
-                    topic: topic.to_string(),
-                    qos: map_qos(qos),
-                    retain,
-                    payload: payload.to_owned(),
-                })
-                .await
-                .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
-
+            self.mqtt_client
+                .publish(topic, map_qos(qos), retain, payload)
+                .await?;
             Ok(())
         } else {
             Err(anyhow!(
@@ -90,13 +70,7 @@ impl mqtt::Mqtt for MqttConnection {
         qos: mqtt::QualityOfService,
     ) -> anyhow::Result<()> {
         if self.allowed_sub_topics.contains(&topic.to_string()) {
-            self.mqtt_client_action_sender
-                .send(MqttClientAction::Subscribe {
-                    topic: topic.to_string(),
-                    qos: map_qos(qos),
-                })
-                .await
-                .map_err(|e| anyhow!("error sending event to mqtt runtime: {}", e))?;
+            self.mqtt_client.subscribe(topic, map_qos(qos)).await?;
 
             Ok(())
         } else {
@@ -113,12 +87,15 @@ impl mqtt::Mqtt for MqttConnection {
                 use rumqttc::Event;
                 Ok(match notification {
                     Event::Incoming(incoming) => match incoming {
-                        Incoming::Publish(publish) => Ok(mqtt::Event::Incoming(
-                            mqtt::IncomingEvent::Publish(mqtt::PublishEvent {
-                                topic: publish.topic,
-                                payload: publish.payload.to_vec(),
-                            }),
-                        )),
+                        Incoming::Publish(publish) => {
+                            log::error!("DEBUG!!! {:?}", publish);
+                            Ok(mqtt::Event::Incoming(mqtt::IncomingEvent::Publish(
+                                mqtt::PublishEvent {
+                                    topic: publish.topic,
+                                    payload: publish.payload.to_vec(),
+                                },
+                            )))
+                        }
                         _ => Err("unsupported event".to_string()),
                     },
                     Event::Outgoing(_) => Err("ignored outgoing event".to_string()),

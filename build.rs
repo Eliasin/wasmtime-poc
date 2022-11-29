@@ -10,7 +10,7 @@ fn wait_for_path_deletion<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     for _ in 1..32 {
         if path.exists() {
-            std::thread::sleep(Duration::from_millis(1000));
+            std::thread::sleep(Duration::from_millis(2000));
         } else {
             return Ok(());
         }
@@ -26,7 +26,7 @@ fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     let path = path.as_ref();
     for _ in 1..32 {
         if !path.exists() {
-            std::thread::sleep(Duration::from_millis(1000));
+            std::thread::sleep(Duration::from_millis(2000));
         } else {
             return Ok(());
         }

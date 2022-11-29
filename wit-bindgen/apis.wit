@@ -87,6 +87,10 @@ interface fio {
     append-bytes: func(file-path: string, buffer: list<u8>)
 }
 
+interface util {
+    sleep: func(millis: u64)
+}
+
 interface start {
     start: func() -> result<_, string>
 }
@@ -97,6 +101,7 @@ world apis {
     import mqtt: mqtt
     import channels: channels
     import fio: fio
+    import util: util
 
     default export start
 }

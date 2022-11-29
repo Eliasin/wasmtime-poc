@@ -7,10 +7,7 @@ use wasmtime::{
     Config, Engine, Store,
 };
 
-use crate::api::{
-    debug_async_api, env_async_api,
-    mqtt_async_api::{self, MqttClientAction},
-};
+use crate::api::{debug_async_api, env_async_api, mqtt_async_api, util_async_api};
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "./wit-bindgen/apis.wit",
@@ -66,6 +63,7 @@ impl UninitializedAppContext {
                     mqtt_async_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
                     debug_async_api::add_to_linker(&mut linker, |s| s)?;
                     env_async_api::add_to_linker(&mut linker, |s| s)?;
+                    util_async_api::add_to_linker(&mut linker, |s| s)?;
 
                     Ok((
                         module_name,
@@ -88,8 +86,6 @@ impl UninitializedAppContext {
 
 fn create_async_mqtt_event_loop_task(
     event_loop: rumqttc::EventLoop,
-    client: rumqttc::AsyncClient,
-    client_action_receiver: mpsc::Receiver<MqttClientAction>,
     event_channel_sender: mpsc::Sender<rumqttc::Event>,
 ) -> AsyncMqttEventLoopTask {
     let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
@@ -97,8 +93,6 @@ fn create_async_mqtt_event_loop_task(
     let mqtt_event_loop_task_handle = tokio::spawn(async move {
         async_mqtt_event_loop_task(
             event_channel_sender,
-            client,
-            client_action_receiver,
             mqtt_event_loop_runtime_receiver,
             event_loop,
         )
@@ -147,17 +141,13 @@ impl InitializedAsyncAppContext {
             match mqtt_runtime {
                 Ok(AsyncMqttRuntime {
                     mqtt,
-                    client,
                     event_loop,
                     event_channel_sender,
-                    client_action_receiver,
                 }) => {
                     mqtt_connection = Some(mqtt);
 
                     module_mqtt_event_loop_task_info = Some(create_async_mqtt_event_loop_task(
                         event_loop,
-                        client,
-                        client_action_receiver,
                         event_channel_sender,
                     ));
                 }
