@@ -8,7 +8,7 @@ use std::{
 use tokio::sync::mpsc;
 
 use super::RuntimeEvent;
-use crate::{api::fio_async_api::FileIOState, api::mqtt_async_api::MqttConnection};
+use crate::{api::fio_async_api::AsyncFileIOState, api::mqtt_async_api::AsyncMqttConnection};
 
 #[derive(Deserialize, Clone)]
 pub struct MqttRuntimeConfig {
@@ -62,18 +62,18 @@ impl AppConfig {
 }
 
 pub struct AsyncMqttRuntime {
-    pub mqtt: MqttConnection,
+    pub mqtt: AsyncMqttConnection,
     pub event_channel_sender: mpsc::Sender<rumqttc::Event>,
     pub event_loop: rumqttc::EventLoop,
 }
 
-pub struct FileIORuntime {
-    pub fio: FileIOState,
+pub struct AsyncFileIORuntime {
+    pub fio: AsyncFileIOState,
 }
 
-pub struct WasmModuleStore {
-    pub mqtt_connection: Option<MqttConnection>,
-    pub fio: Option<FileIOState>,
+pub struct AsyncWasmModuleStore {
+    pub mqtt_connection: Option<AsyncMqttConnection>,
+    pub fio: Option<AsyncFileIOState>,
     pub env: HashMap<String, String>,
 }
 
@@ -92,7 +92,7 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncM
     let (mqtt_event_sender, mqtt_event_receiver) = mpsc::channel(event_channel_bound);
 
     Ok(AsyncMqttRuntime {
-        mqtt: MqttConnection::new(
+        mqtt: AsyncMqttConnection::new(
             client,
             mqtt_event_receiver,
             mqtt_config.allowed_sub_topics.clone(),
@@ -103,9 +103,9 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncM
     })
 }
 
-fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<FileIORuntime> {
-    Ok(FileIORuntime {
-        fio: FileIOState::new(
+fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<AsyncFileIORuntime> {
+    Ok(AsyncFileIORuntime {
+        fio: AsyncFileIOState::new(
             fio_config
                 .allowed_write_files
                 .iter()
@@ -166,6 +166,6 @@ pub fn initialize_async_mqtt_for_module(
 
 pub fn initialize_fio_for_module(
     module_runtime_config: &ModuleRuntimeConfig,
-) -> Option<anyhow::Result<FileIORuntime>> {
+) -> Option<anyhow::Result<AsyncFileIORuntime>> {
     module_runtime_config.fio.as_ref().map(create_fio_runtime)
 }

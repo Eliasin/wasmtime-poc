@@ -9,21 +9,21 @@ wit_bindgen_host_wasmtime_rust::generate!({
 
 pub use mqtt::add_to_linker;
 
-pub struct MqttConnection {
+pub struct AsyncMqttConnection {
     mqtt_client: rumqttc::AsyncClient,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
 }
 
-impl MqttConnection {
+impl AsyncMqttConnection {
     pub fn new(
         mqtt_client: rumqttc::AsyncClient,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
-    ) -> MqttConnection {
-        MqttConnection {
+    ) -> AsyncMqttConnection {
+        AsyncMqttConnection {
             mqtt_client,
             mqtt_event_receiver,
             allowed_sub_topics,
@@ -42,8 +42,14 @@ fn map_qos(qos: mqtt::QualityOfService) -> rumqttc::QoS {
     }
 }
 
+impl AsyncMqttConnection {
+    pub async fn disconnect(&self) -> anyhow::Result<()> {
+        Ok(self.mqtt_client.disconnect().await?)
+    }
+}
+
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl mqtt::Mqtt for MqttConnection {
+impl mqtt::Mqtt for AsyncMqttConnection {
     async fn publish(
         &mut self,
         topic: String,
@@ -109,7 +115,7 @@ impl mqtt::Mqtt for MqttConnection {
 }
 
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl mqtt::Mqtt for Option<MqttConnection> {
+impl mqtt::Mqtt for Option<AsyncMqttConnection> {
     async fn publish(
         &mut self,
         topic: String,

@@ -1,4 +1,4 @@
-use crate::runtime::WasmModuleStore;
+use crate::runtime::AsyncWasmModuleStore;
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "./wit-bindgen/apis.wit",
@@ -7,34 +7,36 @@ wit_bindgen_host_wasmtime_rust::generate!({
 
 pub use debug::add_to_linker;
 
+pub const MODULE_DEBUG_TARGET: &str = "module-debug";
+
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl debug::Debug for WasmModuleStore {
+impl debug::Debug for AsyncWasmModuleStore {
     async fn trace(&mut self, msg: String) -> anyhow::Result<()> {
-        log::trace!("{}", msg);
+        log::trace!(target: MODULE_DEBUG_TARGET, "{}", msg);
 
         Ok(())
     }
 
     async fn debug(&mut self, msg: String) -> anyhow::Result<()> {
-        log::debug!("{}", msg);
+        log::debug!(target: MODULE_DEBUG_TARGET, "{}", msg);
 
         Ok(())
     }
 
     async fn info(&mut self, msg: String) -> anyhow::Result<()> {
-        log::info!("{}", msg);
+        log::info!(target: MODULE_DEBUG_TARGET, "{}", msg);
 
         Ok(())
     }
 
     async fn warn(&mut self, msg: String) -> anyhow::Result<()> {
-        log::warn!("{}", msg);
+        log::warn!(target: MODULE_DEBUG_TARGET, "{}", msg);
 
         Ok(())
     }
 
     async fn error(&mut self, msg: String) -> anyhow::Result<()> {
-        log::error!("{}", msg);
+        log::error!(target: MODULE_DEBUG_TARGET, "{}", msg);
 
         Ok(())
     }

@@ -12,7 +12,7 @@ wit_bindgen_host_wasmtime_rust::generate!({
 
 pub use fio::add_to_linker;
 
-pub struct FileIOState {
+pub struct AsyncFileIOState {
     allowed_write_files: Vec<PathBuf>,
     allowed_write_directories: Vec<PathBuf>,
     allowed_read_files: Vec<PathBuf>,
@@ -20,14 +20,14 @@ pub struct FileIOState {
     open_file_handles: HashMap<PathBuf, File>,
 }
 
-impl FileIOState {
+impl AsyncFileIOState {
     pub fn new(
         allowed_write_files: Vec<PathBuf>,
         allowed_write_folders: Vec<PathBuf>,
         allowed_read_files: Vec<PathBuf>,
         allowed_read_folders: Vec<PathBuf>,
-    ) -> FileIOState {
-        FileIOState {
+    ) -> AsyncFileIOState {
+        AsyncFileIOState {
             allowed_write_files,
             allowed_write_directories: allowed_write_folders,
             allowed_read_files,
@@ -51,7 +51,7 @@ fn is_file_operation_allowed(
 }
 
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl fio::Fio for FileIOState {
+impl fio::Fio for AsyncFileIOState {
     async fn read_bytes(&mut self, file_path: String, num_bytes: u64) -> anyhow::Result<Vec<u8>> {
         let path = fs::canonicalize(file_path).map_err(|_| anyhow!("Missing permissions"))?;
         let num_bytes: usize = num_bytes.try_into().with_context(|| {

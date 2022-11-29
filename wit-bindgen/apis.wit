@@ -4,7 +4,7 @@ interface env {
 
 interface channels {
     emit: func(channel-name: string, event: string)
-    poll: func(channel-name: string) -> list<string>
+    poll: func(channel-name: string) -> string
 }
 
 interface debug {
@@ -72,10 +72,10 @@ interface mqtt {
 
 interface fio {
     variant seek-motion {
-    from-start(u64),
-    from-end(s64),
-    forwards(s64),
-    backwards(s64),
+        from-start(u64),
+        from-end(s64),
+        forwards(s64),
+        backwards(s64),
     }
 
     read-bytes: func(file-path: string, num-bytes: u64) -> list<u8>

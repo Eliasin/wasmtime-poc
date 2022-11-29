@@ -16,8 +16,8 @@ wit_bindgen_host_wasmtime_rust::generate!({
 
 use super::{
     async_mqtt_event_loop_task, initialize_async_mqtt_for_module, initialize_fio_for_module,
-    AsyncMqttRuntime, InitializedModule, ModuleRuntimeConfig, RuntimeEvent,
-    UninitializedAppContext, WasmModuleStore,
+    AsyncMqttRuntime, AsyncWasmModuleStore, InitializedModule, ModuleRuntimeConfig, RuntimeEvent,
+    UninitializedAppContext,
 };
 
 struct AsyncMqttEventLoopTask {
@@ -26,12 +26,12 @@ struct AsyncMqttEventLoopTask {
 }
 
 struct AsyncModuleRuntime {
-    store: Store<WasmModuleStore>,
+    store: Store<AsyncWasmModuleStore>,
     module_mqtt_event_loop_task_info: Option<AsyncMqttEventLoopTask>,
 }
 
 pub struct InitializedAsyncAppContext {
-    modules: HashMap<String, InitializedModule<WasmModuleStore, ModuleRuntimeConfig>>,
+    modules: HashMap<String, InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>>,
     engine: Arc<Engine>,
 }
 
@@ -46,7 +46,7 @@ impl UninitializedAppContext {
         let engine = Arc::new(Engine::new(&engine_config)?);
 
         let initialized_modules: Result<
-            HashMap<String, InitializedModule<WasmModuleStore, ModuleRuntimeConfig>>,
+            HashMap<String, InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>>,
             _,
         > = self
             .modules
@@ -54,9 +54,9 @@ impl UninitializedAppContext {
             .map(
                 |(module_name, module)| -> anyhow::Result<(
                     String,
-                    InitializedModule<WasmModuleStore, ModuleRuntimeConfig>,
+                    InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
                 )> {
-                    let mut linker = Linker::<WasmModuleStore>::new(&engine);
+                    let mut linker = Linker::<AsyncWasmModuleStore>::new(&engine);
 
                     let compiled_module = Component::from_binary(&engine, &module.bytes)?;
 
@@ -67,7 +67,7 @@ impl UninitializedAppContext {
 
                     Ok((
                         module_name,
-                        InitializedModule::<WasmModuleStore, ModuleRuntimeConfig> {
+                        InitializedModule::<AsyncWasmModuleStore, ModuleRuntimeConfig> {
                             module: compiled_module,
                             linker,
                             runtime_config: module.runtime_config,
@@ -110,6 +110,12 @@ impl InitializedAsyncAppContext {
         &mut self,
         async_module_runtime: AsyncModuleRuntime,
     ) -> anyhow::Result<()> {
+        if let Some(mqtt_connection) = &async_module_runtime.store.data().mqtt_connection {
+            if let Err(e) = mqtt_connection.disconnect().await {
+                log::error!("Error disconnecting MQTT client: {}", e);
+            }
+        }
+
         if let Some(mqtt_event_loop_task_info) =
             async_module_runtime.module_mqtt_event_loop_task_info
         {
@@ -119,7 +125,7 @@ impl InitializedAsyncAppContext {
                 .await?;
 
             if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
-                eprintln!("MQTT event loop task error: {}", e);
+                log::error!("Error waiting on event loop task to finish: {}", e);
             }
         }
 
@@ -130,7 +136,7 @@ impl InitializedAsyncAppContext {
     async fn start_module(
         engine: &Engine,
         module_name: &str,
-        module_template: &InitializedModule<WasmModuleStore, ModuleRuntimeConfig>,
+        module_template: &InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
     ) -> anyhow::Result<tokio::task::JoinHandle<AsyncModuleRuntime>> {
         let mut mqtt_connection = None;
         let mut module_mqtt_event_loop_task_info = None;
@@ -151,9 +157,10 @@ impl InitializedAsyncAppContext {
                         event_channel_sender,
                     ));
                 }
-                Err(e) => eprintln!(
+                Err(e) => log::error!(
                     "Error starting MQTT runtime for module '{}': {}",
-                    module_name, e
+                    module_name,
+                    e
                 ),
             }
         }
@@ -164,9 +171,10 @@ impl InitializedAsyncAppContext {
                 Ok(fio_runtime) => {
                     fio = Some(fio_runtime.fio);
                 }
-                Err(e) => eprintln!(
+                Err(e) => log::error!(
                     "Error starting File IO runtime for module '{}': {}",
-                    module_name, e
+                    module_name,
+                    e
                 ),
             }
         }
@@ -175,7 +183,7 @@ impl InitializedAsyncAppContext {
 
         let mut store = Store::new(
             &engine,
-            WasmModuleStore {
+            AsyncWasmModuleStore {
                 mqtt_connection,
                 fio,
                 env,

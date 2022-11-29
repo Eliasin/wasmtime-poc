@@ -10,3 +10,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git", rev = "4bd4371084c9fe57ae236238386d8a5f91217b50" }
+serde_json = "1.0.89"
+serde = { version = "1.0.148", features = ["derive"] }

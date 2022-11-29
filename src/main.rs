@@ -5,6 +5,7 @@ mod runtime;
 
 use std::str::FromStr;
 
+use api::debug_async_api::MODULE_DEBUG_TARGET;
 use clap::Parser;
 use runtime::{AppConfig, UninitializedAppContext};
 
@@ -32,7 +33,8 @@ async fn main() -> anyhow::Result<()> {
                 message,
             ))
         })
-        .level(debug_level)
+        .level(log::LevelFilter::Warn)
+        .level_for(MODULE_DEBUG_TARGET, debug_level)
         .chain(std::io::stdout())
         .apply()?;
 

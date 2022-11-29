@@ -1,4 +1,4 @@
-use crate::runtime::WasmModuleStore;
+use crate::runtime::AsyncWasmModuleStore;
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "./wit-bindgen/apis.wit",
@@ -8,7 +8,7 @@ wit_bindgen_host_wasmtime_rust::generate!({
 pub use env::add_to_linker;
 
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl env::Env for WasmModuleStore {
+impl env::Env for AsyncWasmModuleStore {
     async fn get_val(&mut self, var_name: String) -> anyhow::Result<Option<String>> {
         Ok(self.env.get(&var_name).map(|s| s.clone()))
     }
