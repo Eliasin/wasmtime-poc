@@ -50,10 +50,10 @@ fn build_modules() -> anyhow::Result<()> {
                 .context("Failed to canonicalize module directory path")?,
         )?;
         wait_for_path_deletion(module_build_dir_path)?;
-        fs::create_dir(&module_build_dir_path)?;
+        fs::create_dir(module_build_dir_path)?;
         wait_for_path_creation(module_build_dir_path)?;
     } else {
-        fs::create_dir(&module_build_dir_path)?;
+        fs::create_dir(module_build_dir_path)?;
         wait_for_path_creation(module_build_dir_path)?;
     }
 
@@ -176,7 +176,7 @@ fn build_modules() -> anyhow::Result<()> {
 
             modules.push((module_path.clone(), module_package_name.clone()));
 
-            let adjusted_module_package_name = module_package_name.replace("-", "_");
+            let adjusted_module_package_name = module_package_name.replace('-', "_");
 
             let wasm_module_file_path = module_path
                 .join("target/wasm32-unknown-unknown/debug/")

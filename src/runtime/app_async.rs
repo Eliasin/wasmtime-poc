@@ -79,7 +79,7 @@ impl UninitializedAppContext {
 
         Ok(InitializedAsyncAppContext {
             modules: initialized_modules?,
-            engine: engine.clone(),
+            engine,
         })
     }
 }
@@ -182,7 +182,7 @@ impl InitializedAsyncAppContext {
         let env = module_template.runtime_config.env.clone();
 
         let mut store = Store::new(
-            &engine,
+            engine,
             AsyncWasmModuleStore {
                 mqtt_connection,
                 fio,
@@ -225,7 +225,7 @@ impl InitializedAsyncAppContext {
 
         for (module_name, module_data) in startup_modules {
             executing_modules.push(
-                InitializedAsyncAppContext::start_module(&self.engine, module_name, &module_data)
+                InitializedAsyncAppContext::start_module(&self.engine, module_name, module_data)
                     .await?,
             );
         }

@@ -57,7 +57,7 @@ impl AppConfig {
             )
         })?;
 
-        Ok(toml::from_str(&config_file_contents).context("Malformed app config")?)
+        toml::from_str(&config_file_contents).context("Malformed app config")
     }
 }
 

@@ -39,8 +39,8 @@ impl AsyncFileIOState {
 
 fn is_file_operation_allowed(
     file_path: impl AsRef<Path>,
-    allowed_directories: &Vec<PathBuf>,
-    allowed_files: &Vec<PathBuf>,
+    allowed_directories: &[PathBuf],
+    allowed_files: &[PathBuf],
 ) -> bool {
     allowed_files
         .iter()
@@ -74,13 +74,12 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
-                    &self
-                        .open_file_handles
+                    self.open_file_handles
                         .get(&path)
                         .expect("Value was just inserted")
                 }
             };
-            file.read(&mut buff[0..num_bytes])?;
+            file.read_exact(&mut buff[0..num_bytes])?;
         } else {
             return Err(anyhow!("Missing permissions"));
         }
@@ -103,8 +102,7 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
-                    &self
-                        .open_file_handles
+                    self.open_file_handles
                         .get(&path)
                         .expect("Value was just inserted")
                 }
@@ -132,8 +130,7 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
-                    &self
-                        .open_file_handles
+                    self.open_file_handles
                         .get(&path)
                         .expect("Value was just inserted")
                 }
@@ -157,8 +154,7 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     let f = File::open(path.clone())?;
                     self.open_file_handles.insert(path.clone(), f);
-                    &self
-                        .open_file_handles
+                    self.open_file_handles
                         .get(&path)
                         .expect("Value was just inserted")
                 }
