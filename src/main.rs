@@ -1,4 +1,5 @@
 #![feature(hash_drain_filter)]
+#![feature(entry_insert)]
 
 mod api;
 mod runtime;

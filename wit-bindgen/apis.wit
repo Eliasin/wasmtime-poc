@@ -78,13 +78,13 @@ interface fio {
         backwards(s64),
     }
 
-    read-bytes: func(file-path: string, num-bytes: u64) -> list<u8>
+    read-bytes: func(file-path: string, num-bytes: u64) -> result<list<u8>, string>
 
-    seek-bytes: func(file-path: string, seek-motion: seek-motion) -> u64
+    seek-bytes: func(file-path: string, seek-motion: seek-motion) -> result<u64, string>
 
-    write-bytes: func(file-path: string, buffer: list<u8>)
+    write-bytes: func(file-path: string, buffer: list<u8>) -> result<_, string>
 
-    append-bytes: func(file-path: string, buffer: list<u8>)
+    append-bytes: func(file-path: string, buffer: list<u8>) -> result<_, string>
 }
 
 interface util {
