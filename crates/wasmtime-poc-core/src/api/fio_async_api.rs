@@ -265,7 +265,7 @@ impl fio::Fio for AsyncFileIOState {
 }
 
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl fio::Fio for Option<AsyncFileIOState> {
+impl<F: fio::Fio + Send + Sync> fio::Fio for Option<F> {
     async fn read_bytes(
         &mut self,
         file_path: String,

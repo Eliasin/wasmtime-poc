@@ -115,7 +115,7 @@ impl mqtt::Mqtt for AsyncMqttConnection {
 }
 
 #[wit_bindgen_host_wasmtime_rust::async_trait]
-impl mqtt::Mqtt for Option<AsyncMqttConnection> {
+impl<M: mqtt::Mqtt + Send + Sync> mqtt::Mqtt for Option<M> {
     async fn publish(
         &mut self,
         topic: String,
