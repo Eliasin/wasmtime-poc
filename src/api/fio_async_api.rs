@@ -263,3 +263,50 @@ impl fio::Fio for AsyncFileIOState {
         }
     }
 }
+
+#[wit_bindgen_host_wasmtime_rust::async_trait]
+impl fio::Fio for Option<AsyncFileIOState> {
+    async fn read_bytes(
+        &mut self,
+        file_path: String,
+        num_bytes: u64,
+    ) -> anyhow::Result<Result<Vec<u8>, String>> {
+        match self {
+            Some(v) => v.read_bytes(file_path, num_bytes).await,
+            None => Ok(Err("module is missing fio runtime".to_string())),
+        }
+    }
+
+    async fn seek_bytes(
+        &mut self,
+        file_path: String,
+        seek_motion: fio::SeekMotion,
+    ) -> anyhow::Result<Result<u64, String>> {
+        match self {
+            Some(v) => v.seek_bytes(file_path, seek_motion).await,
+            None => Ok(Err("module is missing fio runtime".to_string())),
+        }
+    }
+
+    async fn write_bytes(
+        &mut self,
+        file_path: String,
+        buffer: Vec<u8>,
+    ) -> anyhow::Result<Result<(), String>> {
+        match self {
+            Some(v) => v.write_bytes(file_path, buffer).await,
+            None => Ok(Err("module is missing fio runtime".to_string())),
+        }
+    }
+
+    async fn append_bytes(
+        &mut self,
+        file_path: String,
+        buffer: Vec<u8>,
+    ) -> anyhow::Result<Result<(), String>> {
+        match self {
+            Some(v) => v.append_bytes(file_path, buffer).await,
+            None => Ok(Err("module is missing fio runtime".to_string())),
+        }
+    }
+}

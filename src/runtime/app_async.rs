@@ -7,7 +7,7 @@ use wasmtime::{
     Config, Engine, Store,
 };
 
-use crate::api::{debug_async_api, env_async_api, mqtt_async_api, util_async_api};
+use crate::api::{debug_async_api, env_async_api, fio_async_api, mqtt_async_api, util_async_api};
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "./wit-bindgen/apis.wit",
@@ -64,6 +64,7 @@ impl UninitializedAppContext {
                     debug_async_api::add_to_linker(&mut linker, |s| s)?;
                     env_async_api::add_to_linker(&mut linker, |s| s)?;
                     util_async_api::add_to_linker(&mut linker, |s| s)?;
+                    fio_async_api::add_to_linker(&mut linker, |s| &mut s.fio)?;
 
                     Ok((
                         module_name,
