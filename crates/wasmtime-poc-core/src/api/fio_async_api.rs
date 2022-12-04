@@ -6,7 +6,7 @@ use tokio::fs::{self, File};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 wit_bindgen_host_wasmtime_rust::generate!({
-    path: "./wit-bindgen/apis.wit",
+    path: "../../wit-bindgen/apis.wit",
     async: true,
 });
 

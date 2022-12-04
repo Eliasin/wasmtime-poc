@@ -54,9 +54,9 @@ checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
 name = "async-trait"
-version = "0.1.58"
+version = "0.1.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e805d94e6b5001b651426cf4cd446b1ab5f319d27bab5c644f61de0a804360c"
+checksum = "31e6e93155431f3931513b243d371981bb2770112b370c82745a1d19d2f99364"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -244,7 +244,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-entity",
 ]
@@ -252,7 +252,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -272,7 +272,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-codegen-shared",
 ]
@@ -280,12 +280,12 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 
 [[package]]
 name = "cranelift-egraph"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-entity",
  "fxhash",
@@ -298,7 +298,7 @@ dependencies = [
 [[package]]
 name = "cranelift-entity"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "serde",
 ]
@@ -306,7 +306,7 @@ dependencies = [
 [[package]]
 name = "cranelift-frontend"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-codegen",
  "log",
@@ -317,12 +317,12 @@ dependencies = [
 [[package]]
 name = "cranelift-isle"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 
 [[package]]
 name = "cranelift-native"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-codegen",
  "libc",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "cranelift-wasm"
 version = "0.91.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -408,9 +408,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.82"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4a41a86530d0fe7f5d9ea779916b7cadd2d4f9add748b99c2c029cbbdfaf453"
+checksum = "bdf07d07d6531bfcdbe9b8b739b104610c6508dcc4d63b410585faf338241daf"
 dependencies = [
  "cc",
  "cxxbridge-flags",
@@ -420,9 +420,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.82"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06416d667ff3e3ad2df1cd8cd8afae5da26cf9cec4d0825040f88b5ca659a2f0"
+checksum = "d2eb5b96ecdc99f72657332953d4d9c50135af1bac34277801cc3937906ebd39"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -435,15 +435,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.82"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "820a9a2af1669deeef27cb271f476ffd196a2c4b6731336011e0ba63e2c7cf71"
+checksum = "ac040a39517fd1674e0f32177648334b0f4074625b5588a64519804ba0553b12"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.82"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a08a6e2fcc370a089ad3b4aaf54db3b1b4cee38ddabce5896b33eb693275f470"
+checksum = "1362b0ddcfc4eb0a1f57b68bd77dd99f0e826958a96abd0ae9bd092e114ffed6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -812,18 +812,12 @@ dependencies = [
 
 [[package]]
 name = "io-lifetimes"
-version = "0.7.5"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59ce5ef949d49ee85593fc4d3f3f95ad61657076395cbbce23e2121fc5542074"
-
-[[package]]
-name = "io-lifetimes"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e394faa0efb47f9f227f1cd89978f854542b318a6f64fa695489c9c993056656"
+checksum = "46112a93252b123d31a119a8d1a1ac19deac4fac6e0e8b0df58f0d4e5870e63c"
 dependencies = [
  "libc",
- "windows-sys 0.42.0",
+ "windows-sys",
 ]
 
 [[package]]
@@ -887,9 +881,9 @@ checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
 name = "libc"
-version = "0.2.137"
+version = "0.2.138"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
+checksum = "db6d7e329c562c5dfab7a46a2afabc8b987ab9a4834c9d1ca04dc54c1546cef8"
 
 [[package]]
 name = "link-cplusplus"
@@ -899,12 +893,6 @@ checksum = "9272ab7b96c9046fbc5bc56c06c117cb639fe2d509df0c421cad82d2915cf369"
 dependencies = [
  "cc",
 ]
-
-[[package]]
-name = "linux-raw-sys"
-version = "0.0.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4d2456c373231a208ad294c33dc5bff30051eafd954cd4caae83a712b12854d"
 
 [[package]]
 name = "linux-raw-sys"
@@ -952,7 +940,7 @@ version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b20a59d985586e4a5aef64564ac77299f8586d8be6cf9106a5a40207e8908efb"
 dependencies = [
- "rustix 0.36.3",
+ "rustix",
 ]
 
 [[package]]
@@ -982,7 +970,7 @@ dependencies = [
  "libc",
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "windows-sys 0.42.0",
+ "windows-sys",
 ]
 
 [[package]]
@@ -1059,15 +1047,15 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dc9e0dc2adc1c69d09143aff38d3d30c5c3f0df0dad82e6d25547af174ebec0"
+checksum = "7ff9f3fef3968a3ec5945535ed654cb38ff72d7495a25619e2247fb15a2ed9ba"
 dependencies = [
  "cfg-if",
  "libc",
  "redox_syscall",
  "smallvec",
- "windows-sys 0.42.0",
+ "windows-sys",
 ]
 
 [[package]]
@@ -1263,9 +1251,9 @@ dependencies = [
 
 [[package]]
 name = "regalloc2"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91b2eab54204ea0117fe9a060537e0b07a4e72f7c7d182361ecc346cab2240e5"
+checksum = "10b072c75d1b10368447a55cf1d589f2527d956e92c281c81c3e788cda81b983"
 dependencies = [
  "fxhash",
  "log",
@@ -1330,30 +1318,16 @@ checksum = "7ef03e0a2b150c7a90d01faf6254c9c48a41e95fb2a8c2ac1c6f0d2b9aefc342"
 
 [[package]]
 name = "rustix"
-version = "0.35.13"
+version = "0.36.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "727a1a6d65f786ec22df8a81ca3121107f235970dc1705ed681d3e6e8b9cd5f9"
+checksum = "cb93e85278e08bb5788653183213d3a60fc242b10cb9be96586f5a73dcb67c23"
 dependencies = [
  "bitflags",
  "errno",
- "io-lifetimes 0.7.5",
+ "io-lifetimes",
  "libc",
- "linux-raw-sys 0.0.46",
- "windows-sys 0.42.0",
-]
-
-[[package]]
-name = "rustix"
-version = "0.36.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b1fbb4dfc4eb1d390c02df47760bb19a84bb80b301ecc947ab5406394d8223e"
-dependencies = [
- "bitflags",
- "errno",
- "io-lifetimes 1.0.2",
- "libc",
- "linux-raw-sys 0.1.3",
- "windows-sys 0.42.0",
+ "linux-raw-sys",
+ "windows-sys",
 ]
 
 [[package]]
@@ -1401,18 +1375,18 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.147"
+version = "1.0.148"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d193d69bae983fc11a79df82342761dfbf28a99fc8d203dca4c3c1b590948965"
+checksum = "e53f64bb4ba0191d6d0676e1b141ca55047d83b74f5607e6d8eb88126c52c2dc"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.147"
+version = "1.0.148"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f1d362ca8fc9c3e3a7484440752472d68a6caa98f1ab81d99b5dfe517cec852"
+checksum = "a55492425aa53521babf6137309e7d34c20bbfbbfcfe2c7f3a047fd1f6b92c0c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1499,9 +1473,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "syn"
-version = "1.0.103"
+version = "1.0.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a864042229133ada95abf3b54fdc62ef5ccabe9515b64717bcb9a1919e59445d"
+checksum = "60b9b43d45702de4c839cb9b51d9f529c5dd26a4aff255b42b1ebc03e88ee908"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1597,9 +1571,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "1.8.0"
+version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9724f9a975fb987ef7a3cd9be0350edcbe130698af5b8f7a631e23d42d052484"
+checksum = "d266c00fde287f55d3f1c3e96c500c362a2b8c695076ec180f27918820bc6df8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1801,7 +1775,7 @@ dependencies = [
 [[package]]
 name = "wasmtime"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1828,13 +1802,13 @@ dependencies = [
  "wasmtime-jit",
  "wasmtime-runtime",
  "wat",
- "windows-sys 0.36.1",
+ "windows-sys",
 ]
 
 [[package]]
 name = "wasmtime-asm-macros"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cfg-if",
 ]
@@ -1842,7 +1816,7 @@ dependencies = [
 [[package]]
 name = "wasmtime-cache"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "anyhow",
  "base64",
@@ -1850,18 +1824,18 @@ dependencies = [
  "directories-next",
  "file-per-thread-logger",
  "log",
- "rustix 0.35.13",
+ "rustix",
  "serde",
  "sha2",
  "toml",
- "windows-sys 0.36.1",
+ "windows-sys",
  "zstd",
 ]
 
 [[package]]
 name = "wasmtime-component-macro"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1872,12 +1846,12 @@ dependencies = [
 [[package]]
 name = "wasmtime-component-util"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 
 [[package]]
 name = "wasmtime-cranelift"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "anyhow",
  "cranelift-codegen",
@@ -1897,7 +1871,7 @@ dependencies = [
 [[package]]
 name = "wasmtime-environ"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "anyhow",
  "cranelift-entity",
@@ -1918,19 +1892,19 @@ dependencies = [
 [[package]]
 name = "wasmtime-fiber"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cc",
  "cfg-if",
- "rustix 0.35.13",
+ "rustix",
  "wasmtime-asm-macros",
- "windows-sys 0.36.1",
+ "windows-sys",
 ]
 
 [[package]]
 name = "wasmtime-jit"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "addr2line",
  "anyhow",
@@ -1944,32 +1918,31 @@ dependencies = [
  "rustc-demangle",
  "serde",
  "target-lexicon",
- "thiserror",
  "wasmtime-environ",
  "wasmtime-jit-debug",
  "wasmtime-jit-icache-coherence",
  "wasmtime-runtime",
- "windows-sys 0.36.1",
+ "windows-sys",
 ]
 
 [[package]]
 name = "wasmtime-jit-debug"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "object",
  "once_cell",
- "rustix 0.35.13",
+ "rustix",
 ]
 
 [[package]]
 name = "wasmtime-jit-icache-coherence"
 version = "3.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cfg-if",
  "libc",
- "windows-sys 0.36.1",
+ "windows-sys",
 ]
 
 [[package]]
@@ -1981,6 +1954,17 @@ dependencies = [
  "chrono",
  "clap",
  "fern",
+ "log",
+ "tokio",
+ "wasmtime-poc-core",
+]
+
+[[package]]
+name = "wasmtime-poc-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
  "futures",
  "log",
  "rumqttc",
@@ -1995,7 +1979,7 @@ dependencies = [
 [[package]]
 name = "wasmtime-runtime"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "anyhow",
  "cc",
@@ -2009,19 +1993,18 @@ dependencies = [
  "memoffset 0.6.5",
  "paste",
  "rand",
- "rustix 0.35.13",
- "thiserror",
+ "rustix",
  "wasmtime-asm-macros",
  "wasmtime-environ",
  "wasmtime-fiber",
  "wasmtime-jit-debug",
- "windows-sys 0.36.1",
+ "windows-sys",
 ]
 
 [[package]]
 name = "wasmtime-types"
 version = "4.0.0"
-source = "git+https://github.com/bytecodealliance/wasmtime.git#28cf995fd3f9926a95036758c78390f54a0289ae"
+source = "git+https://github.com/bytecodealliance/wasmtime.git#2e9b0802abc5c3784a6297fc91b77e9ff11fee7a"
 dependencies = [
  "cranelift-entity",
  "serde",
@@ -2103,30 +2086,17 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows-sys"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea04155a16a59f9eab786fe12a4a450e75cdb175f9e0d80da1e17db09f55b8d2"
-dependencies = [
- "windows_aarch64_msvc 0.36.1",
- "windows_i686_gnu 0.36.1",
- "windows_i686_msvc 0.36.1",
- "windows_x86_64_gnu 0.36.1",
- "windows_x86_64_msvc 0.36.1",
-]
-
-[[package]]
-name = "windows-sys"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a3e1820f08b8513f676f7ab6c1f99ff312fb97b553d30ff4dd86f9f15728aa7"
 dependencies = [
  "windows_aarch64_gnullvm",
- "windows_aarch64_msvc 0.42.0",
- "windows_i686_gnu 0.42.0",
- "windows_i686_msvc 0.42.0",
- "windows_x86_64_gnu 0.42.0",
+ "windows_aarch64_msvc",
+ "windows_i686_gnu",
+ "windows_i686_msvc",
+ "windows_x86_64_gnu",
  "windows_x86_64_gnullvm",
- "windows_x86_64_msvc 0.42.0",
+ "windows_x86_64_msvc",
 ]
 
 [[package]]
@@ -2137,21 +2107,9 @@ checksum = "41d2aa71f6f0cbe00ae5167d90ef3cfe66527d6f613ca78ac8024c3ccab9a19e"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bb8c3fd39ade2d67e9874ac4f3db21f0d710bee00fe7cab16949ec184eeaa47"
-
-[[package]]
-name = "windows_aarch64_msvc"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd0f252f5a35cac83d6311b2e795981f5ee6e67eb1f9a7f64eb4500fbc4dcdb4"
-
-[[package]]
-name = "windows_i686_gnu"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "180e6ccf01daf4c426b846dfc66db1fc518f074baa793aa7d9b9aaeffad6a3b6"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -2161,21 +2119,9 @@ checksum = "fbeae19f6716841636c28d695375df17562ca208b2b7d0dc47635a50ae6c5de7"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2e7917148b2812d1eeafaeb22a97e4813dfa60a3f8f78ebe204bcc88f12f024"
-
-[[package]]
-name = "windows_i686_msvc"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84c12f65daa39dd2babe6e442988fc329d6243fdce47d7d2d155b8d874862246"
-
-[[package]]
-name = "windows_x86_64_gnu"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dcd171b8776c41b97521e5da127a2d86ad280114807d0b2ab1e462bc764d9e1"
 
 [[package]]
 name = "windows_x86_64_gnu"
@@ -2188,12 +2134,6 @@ name = "windows_x86_64_gnullvm"
 version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09d525d2ba30eeb3297665bd434a54297e4170c7f1a44cad4ef58095b4cd2028"
-
-[[package]]
-name = "windows_x86_64_msvc"
-version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "windows_x86_64_msvc"
@@ -2316,9 +2256,9 @@ dependencies = [
 
 [[package]]
 name = "zstd-sys"
-version = "2.0.3+zstd.1.5.2"
+version = "2.0.4+zstd.1.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44ccf97612ac95f3ccb89b2d7346b345e52f1c3019be4984f0455fb4ba991f8a"
+checksum = "4fa202f2ef00074143e219d15b62ffc317d17cc33909feac471c044087cad7b0"
 dependencies = [
  "cc",
  "libc",

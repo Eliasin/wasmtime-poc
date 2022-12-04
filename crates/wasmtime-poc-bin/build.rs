@@ -38,10 +38,13 @@ fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
     ));
 }
 
+const MODULE_BUILD_DIR: &str = "../../module-build/";
+const MODULE_DIR: &str = "../../modules/";
+
 fn build_modules() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=modules/");
-    let module_build_dir_path = Path::new("module-build/");
+    println!("cargo:rerun-if-changed=../../modules/");
+    let module_build_dir_path = Path::new(MODULE_BUILD_DIR);
     if module_build_dir_path.exists() {
         println!("cargo:warning=Deleting old module build directory...");
         fs::remove_dir_all(
@@ -61,7 +64,7 @@ fn build_modules() -> anyhow::Result<()> {
 
     println!("cargo:warning=********** Starting Module Build Process **********");
     for module_dir in fs::read_dir(
-        Path::new("modules/")
+        Path::new(MODULE_DIR)
             .canonicalize()
             .context("Failed to canonicalize module directory path")?,
     )? {
@@ -212,7 +215,7 @@ fn build_modules() -> anyhow::Result<()> {
     // Hacky way to get the file system operations to sync correctly
     std::thread::sleep(std::time::Duration::from_secs(2));
 
-    let module_build_path = Path::new("module-build/")
+    let module_build_path = Path::new(MODULE_BUILD_DIR)
         .canonicalize()
         .context("Failed to canonicalize module directory path")?;
 

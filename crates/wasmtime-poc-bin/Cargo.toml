@@ -1,0 +1,19 @@
+[package]
+name = "wasmtime-poc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmtime-poc-core = { path = "../wasmtime-poc-core" }
+fern = "0.6"
+clap = { version = "3.2.17", features = ["derive"] }
+tokio = { version = "1.21.0", features = ["full"] }
+anyhow = "1.0.62"
+log = "0.4"
+chrono = "0.4.23"
+
+[build-dependencies]
+cargo_toml = "0.13.0"
+anyhow = "1.0.66"

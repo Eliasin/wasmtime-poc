@@ -1,14 +1,8 @@
-#![feature(hash_drain_filter)]
-#![feature(entry_insert)]
-
-mod api;
-mod runtime;
-
 use std::str::FromStr;
 
-use api::debug_async_api::MODULE_DEBUG_TARGET;
 use clap::Parser;
-use runtime::{AppConfig, UninitializedAppContext};
+use wasmtime_poc_core::api::debug_async_api::MODULE_DEBUG_TARGET;
+use wasmtime_poc_core::runtime::{AppConfig, UninitializedAppContext};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

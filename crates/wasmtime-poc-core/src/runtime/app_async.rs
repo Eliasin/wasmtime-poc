@@ -10,7 +10,7 @@ use wasmtime::{
 use crate::api::{debug_async_api, env_async_api, fio_async_api, mqtt_async_api, util_async_api};
 
 wit_bindgen_host_wasmtime_rust::generate!({
-    path: "./wit-bindgen/apis.wit",
+    path: "../../wit-bindgen/apis.wit",
     async: true,
 });
 

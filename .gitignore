@@ -1,3 +1,8 @@
 target/
 module-build/
 app-config.toml
+
+
+# Added by cargo
+
+/target

@@ -3,7 +3,7 @@ use rumqttc::Incoming;
 use tokio::sync::mpsc;
 
 wit_bindgen_host_wasmtime_rust::generate!({
-    path: "./wit-bindgen/apis.wit",
+    path: "../../wit-bindgen/apis.wit",
     async: true,
 });
 
