@@ -37,10 +37,22 @@ pub struct ModuleRuntimeConfig {
 }
 
 #[derive(Deserialize)]
+#[serde(untagged)]
+pub enum ModuleLocator {
+    TestingModule {
+        module_id: String,
+        test_module_repository_id: String,
+    },
+    ModuleFile {
+        path: Box<Path>,
+    },
+}
+
+#[derive(Deserialize)]
 pub struct ModuleConfig {
     pub name: String,
     pub runtime: ModuleRuntimeConfig,
-    pub wasm_module_path: Box<Path>,
+    pub module_locator: ModuleLocator,
 }
 
 #[derive(Deserialize)]
