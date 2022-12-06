@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use clap::Parser;
 use wasmtime_poc_core::api::debug_async_api::MODULE_DEBUG_TARGET;
+use wasmtime_poc_core::runtime::APP_ASYNC_DEBUG_TARGET;
 use wasmtime_poc_core::runtime::{AppConfig, UninitializedAppContext};
 
 #[derive(Parser, Debug)]
@@ -16,6 +17,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    console_subscriber::init();
 
     let debug_level = log::Level::from_str(&args.debug_level)?.to_level_filter();
     fern::Dispatch::new()
@@ -30,6 +32,7 @@ async fn main() -> anyhow::Result<()> {
         })
         .level(log::LevelFilter::Warn)
         .level_for(MODULE_DEBUG_TARGET, debug_level)
+        .level_for(APP_ASYNC_DEBUG_TARGET, debug_level)
         .chain(std::io::stdout())
         .apply()?;
 

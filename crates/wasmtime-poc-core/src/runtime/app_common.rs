@@ -23,6 +23,7 @@ pub(super) struct InitializedModule<T, C: Clone> {
 
 pub struct UninitializedAppContext {
     pub(super) modules: HashMap<String, UninitializedModule<ModuleRuntimeConfig>>,
+    pub(super) app_config: AppConfig,
 }
 
 pub type ModuleRepository = HashMap<String, Vec<u8>>;
@@ -55,7 +56,10 @@ impl UninitializedAppContext {
                 )
                 .collect();
 
-        Ok(UninitializedAppContext { modules: modules? })
+        Ok(UninitializedAppContext {
+            modules: modules?,
+            app_config: config.clone(),
+        })
     }
 
     #[allow(dead_code)]
@@ -93,6 +97,9 @@ impl UninitializedAppContext {
                 )
                 .collect();
 
-        Ok(UninitializedAppContext { modules: modules? })
+        Ok(UninitializedAppContext {
+            modules: modules?,
+            app_config: config.clone(),
+        })
     }
 }

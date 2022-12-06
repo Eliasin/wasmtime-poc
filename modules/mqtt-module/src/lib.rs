@@ -31,6 +31,7 @@ use mqtt::QualityOfService as QoS;
 
 fn instance_a() -> Result<(), String> {
     mqtt::subscribe("hello/mqttA", mqtt::QualityOfService::ExactlyOnce)?;
+    util::sleep(250);
 
     for i in 0..10 {
         let computation_request = ComputationRequest {
@@ -41,7 +42,6 @@ fn instance_a() -> Result<(), String> {
 
         debug::info(format!("Instance A sending {:?}", computation_request).as_str());
         util::sleep(250);
-
         mqtt::publish("hello/mqttB", QoS::ExactlyOnce, false, payload.as_bytes())?;
 
         loop {
@@ -61,7 +61,7 @@ fn instance_a() -> Result<(), String> {
                         }
                     }
                 }
-                Err(_) => {}
+                Err(e) => debug::error(format!("Instance A received error: {}", e).as_str()),
             }
         }
     }
@@ -73,6 +73,7 @@ fn instance_a() -> Result<(), String> {
 
 fn instance_b() -> Result<(), String> {
     mqtt::subscribe("hello/mqttB", mqtt::QualityOfService::ExactlyOnce)?;
+    util::sleep(250);
 
     for i in 0..10 {
         loop {

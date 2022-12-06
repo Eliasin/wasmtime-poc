@@ -65,6 +65,8 @@ impl mqtt::Mqtt for AsyncMqttConnection {
 
 pub use shared_connection_message_bus::*;
 mod shared_connection_message_bus {
+    use crate::runtime::SharedMqttRuntimeId;
+
     use super::{map_qos, mqtt};
     use anyhow::anyhow;
     use rumqttc::Incoming;
@@ -82,6 +84,7 @@ mod shared_connection_message_bus {
             topic: String,
             qos: rumqttc::QoS,
         },
+        Disconnect,
     }
 
     pub struct MessageBusSharedAsyncMqttConnection {
@@ -90,6 +93,30 @@ mod shared_connection_message_bus {
         subbed_topics: Vec<(String, mqtt::QualityOfService)>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
+        runtime_id: SharedMqttRuntimeId,
+    }
+
+    impl MessageBusSharedAsyncMqttConnection {
+        pub fn new(
+            mqtt_action_sender: mpsc::Sender<MqttClientAction>,
+            mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
+            allowed_sub_topics: Vec<String>,
+            allowed_pub_topics: Vec<String>,
+            runtime_id: SharedMqttRuntimeId,
+        ) -> MessageBusSharedAsyncMqttConnection {
+            MessageBusSharedAsyncMqttConnection {
+                mqtt_action_sender,
+                mqtt_event_receiver,
+                subbed_topics: vec![],
+                allowed_sub_topics,
+                allowed_pub_topics,
+                runtime_id,
+            }
+        }
+
+        pub fn runtime_id(&self) -> &SharedMqttRuntimeId {
+            &self.runtime_id
+        }
     }
 
     #[wit_bindgen_host_wasmtime_rust::async_trait]
@@ -125,13 +152,43 @@ mod shared_connection_message_bus {
             qos: mqtt::QualityOfService,
         ) -> anyhow::Result<Result<(), String>> {
             if self.allowed_sub_topics.contains(&topic.to_string()) {
-                Ok(Ok(self
-                    .mqtt_action_sender
-                    .send(MqttClientAction::Subscribe {
-                        topic,
-                        qos: map_qos(qos),
-                    })
-                    .await?))
+                if let Some((_, subbed_qos)) = self
+                    .subbed_topics
+                    .iter()
+                    .find(|(subbed_topic, _)| *subbed_topic == topic)
+                {
+                    if map_qos(qos) != map_qos(*subbed_qos) {
+                        let result = self
+                            .mqtt_action_sender
+                            .send(MqttClientAction::Subscribe {
+                                topic: topic.clone(),
+                                qos: map_qos(qos),
+                            })
+                            .await
+                            .map_err(|e| format!("MQTT Error: {}", e));
+
+                        if result.is_ok() {
+                            self.subbed_topics.push((topic, qos));
+                        }
+                        Ok(result)
+                    } else {
+                        Ok(Ok(()))
+                    }
+                } else {
+                    let result = self
+                        .mqtt_action_sender
+                        .send(MqttClientAction::Subscribe {
+                            topic: topic.clone(),
+                            qos: map_qos(qos),
+                        })
+                        .await
+                        .map_err(|e| format!("MQTT Error: {}", e));
+
+                    if result.is_ok() {
+                        self.subbed_topics.push((topic, qos));
+                    }
+                    Ok(result)
+                }
             } else {
                 Err(anyhow!(
                     "publish to topic '{}' not allowed by config policy",
@@ -404,7 +461,7 @@ mod instanced_connection {
                                             topic: publish.topic,
                                             payload: publish.payload.to_vec(),
                                         }),
-                                    )))
+                                    )));
                                 }
                                 _ => continue,
                             },
