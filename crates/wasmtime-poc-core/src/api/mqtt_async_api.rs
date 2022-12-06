@@ -165,7 +165,7 @@ mod shared_connection_message_bus {
                                 qos: map_qos(qos),
                             })
                             .await
-                            .map_err(|e| format!("MQTT Error: {}", e));
+                            .map_err(|e| format!("MQTT Error: {e}"));
 
                         if result.is_ok() {
                             self.subbed_topics.push((topic, qos));
@@ -182,7 +182,7 @@ mod shared_connection_message_bus {
                             qos: map_qos(qos),
                         })
                         .await
-                        .map_err(|e| format!("MQTT Error: {}", e));
+                        .map_err(|e| format!("MQTT Error: {e}"));
 
                     if result.is_ok() {
                         self.subbed_topics.push((topic, qos));
@@ -276,7 +276,7 @@ mod shared_connection_lock {
                 Ok(mqtt_client
                     .publish(topic, map_qos(qos), retain, payload)
                     .await
-                    .map_err(|e| format!("MQTT Error: {}", e)))
+                    .map_err(|e| format!("MQTT Error: {e}")))
             } else {
                 Err(anyhow!(
                     "publish to topic '{}' not allowed by config policy",
@@ -301,7 +301,7 @@ mod shared_connection_lock {
                         let result = mqtt_client
                             .subscribe(&topic, map_qos(qos))
                             .await
-                            .map_err(|e| format!("MQTT Error: {}", e));
+                            .map_err(|e| format!("MQTT Error: {e}"));
 
                         if result.is_ok() {
                             self.subbed_topics.push((topic, qos));
@@ -315,7 +315,7 @@ mod shared_connection_lock {
                     let result = mqtt_client
                         .subscribe(&topic, map_qos(qos))
                         .await
-                        .map_err(|e| format!("MQTT Error: {}", e));
+                        .map_err(|e| format!("MQTT Error: {e}"));
 
                     if result.is_ok() {
                         self.subbed_topics.push((topic, qos));
@@ -420,7 +420,7 @@ mod instanced_connection {
                     .mqtt_client
                     .publish(topic, map_qos(qos), retain, payload)
                     .await
-                    .map_err(|e| format!("MQTT Error: {}", e)))
+                    .map_err(|e| format!("MQTT Error: {e}")))
             } else {
                 Err(anyhow!(
                     "publish to topic '{}' not allowed by config policy",
@@ -439,7 +439,7 @@ mod instanced_connection {
                     .mqtt_client
                     .subscribe(topic, map_qos(qos))
                     .await
-                    .map_err(|e| format!("MQTT Error: {}", e)))
+                    .map_err(|e| format!("MQTT Error: {e}")))
             } else {
                 Err(anyhow!(
                     "subscribe to topic '{}' not allowed by config policy",

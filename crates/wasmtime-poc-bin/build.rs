@@ -71,7 +71,7 @@ fn build_modules() -> anyhow::Result<()> {
         let module_dir = match module_dir {
             Ok(module_dir) => module_dir,
             Err(e) => {
-                println!("cargo:warning=Error traversing modules directory: {:?}", e);
+                println!("cargo:warning=Error traversing modules directory: {e:?}");
                 continue;
             }
         };
@@ -223,10 +223,7 @@ fn build_modules() -> anyhow::Result<()> {
         let module_file = match module_file {
             Ok(module_file) => module_file.path(),
             Err(e) => {
-                println!(
-                    "cargo:warning=Error traversing module-build directory: {:?}",
-                    e
-                );
+                println!("cargo:warning=Error traversing module-build directory: {e:?}");
                 continue;
             }
         };
@@ -254,9 +251,8 @@ fn build_modules() -> anyhow::Result<()> {
             Ok(command_thread_handle) => command_thread_handle,
             Err(e) => {
                 println!(
-                    "cargo:warning=Error starting wasm-tools command for module at {}, error: {:?}",
-                    module_file.display(),
-                    e
+                    "cargo:warning=Error starting wasm-tools command for module at {}, error: {e:?}",
+                    module_file.display()
                 );
                 continue;
             }
@@ -299,10 +295,7 @@ fn main() {
             println!("cargo:warning=********** Finished Module Build **********",);
         }
         Err(e) => {
-            println!(
-                "cargo:warning=>>>>> Module build aborted after encountering error: {}",
-                e
-            );
+            println!("cargo:warning=>>>>> Module build aborted after encountering error: {e}");
         }
     }
 }

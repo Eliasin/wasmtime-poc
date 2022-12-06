@@ -216,21 +216,16 @@ impl InitializedAsyncAppContext {
             }
         }
 
-        if let Some(mqtt_event_loop_task_info) =
+        if let Some(AsyncMqttEventLoopTask::Instanced(mqtt_event_loop_task_info)) =
             async_module_runtime.module_mqtt_event_loop_task_info
         {
-            match mqtt_event_loop_task_info {
-                AsyncMqttEventLoopTask::Instanced(mqtt_event_loop_task_info) => {
-                    mqtt_event_loop_task_info
-                        .runtime_event_sender
-                        .send(RuntimeEvent::RuntimeTaskStop)
-                        .await?;
+            mqtt_event_loop_task_info
+                .runtime_event_sender
+                .send(RuntimeEvent::RuntimeTaskStop)
+                .await?;
 
-                    if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
-                        log::error!("Error waiting on event loop task to finish: {}", e);
-                    }
-                }
-                _ => {}
+            if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
+                log::error!("Error waiting on event loop task to finish: {}", e);
             }
         }
 
@@ -239,7 +234,7 @@ impl InitializedAsyncAppContext {
     }
 
     fn start_shared_mqtt_event_loops(
-        shared_mqtt_runtime_configs: &Vec<SharedMqttRuntimeConfig>,
+        shared_mqtt_runtime_configs: &[SharedMqttRuntimeConfig],
     ) -> anyhow::Result<Vec<(SharedMqttRuntimeId, SharedMqttEventLoop)>> {
         shared_mqtt_runtime_configs
             .iter()
@@ -566,7 +561,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
             notification = mqtt_event_loop.poll() => {
                 match notification {
                     Ok(notification) => {
-                        for (_, module_event_sender) in &mut module_event_senders {
+                        for module_event_sender in module_event_senders.values_mut() {
                             if let Err(e) = module_event_sender.send(notification.clone()).await {
                                 log::error!("Error sending MQTT notification to event channel: {}", e);
                             }

@@ -63,8 +63,7 @@ impl fio::Fio for AsyncFileIOState {
         };
         let num_bytes: usize = match num_bytes.try_into().with_context(|| {
             format!(
-                "requested read size {} exceeds host usize max {}",
-                num_bytes,
+                "requested read size {num_bytes} exceeds host usize max {}",
                 usize::MAX
             )
         }) {
@@ -83,13 +82,11 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     if !path.exists() {
                         return Ok(Err(format!(
-                            "requested read to {} references path that does not exist",
-                            file_path
+                            "requested read to {file_path} references path that does not exist"
                         )));
                     } else if !path.is_file() {
                         return Ok(Err(format!(
-                            "requested read to {} references path that is not a file",
-                            file_path
+                            "requested read to {file_path} references path that is not a file"
                         )));
                     }
 
@@ -106,7 +103,7 @@ impl fio::Fio for AsyncFileIOState {
             if let Err(e) = file
                 .read_exact(&mut buff[0..num_bytes])
                 .await
-                .with_context(|| format!("requested read to {} failed", file_path))
+                .with_context(|| format!("requested read to {file_path} failed"))
             {
                 return Ok(Err(e.to_string()));
             }
@@ -135,13 +132,11 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     if !path.exists() {
                         return Ok(Err(format!(
-                            "requested seek on {} references path that does not exist",
-                            file_path
+                            "requested seek on {file_path} references path that does not exist"
                         )));
                     } else if !path.is_file() {
                         return Ok(Err(format!(
-                            "requested seek on {} references path that is not a file",
-                            file_path
+                            "requested seek on {file_path} references path that is not a file"
                         )));
                     }
 
@@ -160,7 +155,7 @@ impl fio::Fio for AsyncFileIOState {
                     fio::SeekMotion::Forwards(bytes) => file.seek(SeekFrom::Current(bytes)).await,
                     fio::SeekMotion::Backwards(bytes) => file.seek(SeekFrom::Current(bytes)).await,
                 })
-                .with_context(|| format!("requested seek on {} failed", file_path))
+                .with_context(|| format!("requested seek on {file_path} failed"))
                 .map_err(|e| e.to_string())
             };
 
@@ -190,13 +185,11 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     if !path.exists() {
                         return Ok(Err(format!(
-                            "requested write to {} references path that does not exist",
-                            file_path,
+                            "requested write to {file_path} references path that does not exist"
                         )));
                     } else if !path.is_file() {
                         return Ok(Err(format!(
-                            "requested write to {} references path that is not a file",
-                            file_path,
+                            "requested write to {file_path} references path that is not a file",
                         )));
                     }
 
@@ -235,13 +228,11 @@ impl fio::Fio for AsyncFileIOState {
                 None => {
                     if !path.exists() {
                         return Ok(Err(format!(
-                            "requested read to {} references path that does not exist",
-                            file_path
+                            "requested read to {file_path} references path that does not exist",
                         )));
                     } else if !path.is_file() {
                         return Ok(Err(format!(
-                            "requested read to {} references path that is not a file",
-                            file_path
+                            "requested read to {file_path} references path that is not a file",
                         )));
                     }
 
