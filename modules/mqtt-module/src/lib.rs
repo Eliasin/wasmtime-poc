@@ -40,7 +40,7 @@ fn instance_a() -> Result<(), String> {
         let payload = serde_json::to_string(&computation_request).map_err(|e| format!("{}", e))?;
 
         debug::info(format!("Instance A sending {:?}", computation_request).as_str());
-        util::sleep(1000);
+        util::sleep(250);
 
         mqtt::publish("hello/mqttB", QoS::ExactlyOnce, false, payload.as_bytes())?;
 
@@ -104,7 +104,7 @@ fn instance_b() -> Result<(), String> {
                                     .as_str(),
                                 );
 
-                                util::sleep(1000);
+                                util::sleep(250);
                                 mqtt::publish("hello/mqttA", QoS::ExactlyOnce, false, payload)?;
                                 break;
                             }

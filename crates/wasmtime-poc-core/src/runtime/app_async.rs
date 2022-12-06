@@ -1,28 +1,35 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use anyhow::bail;
 use futures::{stream::FuturesUnordered, StreamExt};
-use tokio::sync::mpsc;
 use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
 };
 
-use crate::api::{debug_async_api, env_async_api, fio_async_api, mqtt_async_api, util_async_api};
+use crate::api::{
+    debug_async_api, env_async_api, fio_async_api,
+    mqtt_async_api::{self, AsyncMqttConnection},
+    util_async_api,
+};
+
+use super::{
+    create_async_mqtt_runtime, initialize_fio_for_module, AsyncWasmModuleStore, InitializedModule,
+    ModuleRuntimeConfig, RuntimeEvent, UninitializedAppContext,
+};
 
 wit_bindgen_host_wasmtime_rust::generate!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });
 
-use super::{
-    async_mqtt_event_loop_task, initialize_async_mqtt_for_module, initialize_fio_for_module,
-    AsyncMqttRuntime, AsyncWasmModuleStore, InitializedModule, ModuleRuntimeConfig, RuntimeEvent,
-    UninitializedAppContext,
-};
+pub struct InstancedAsyncMqttEventLoopTask {
+    pub(super) runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
+    pub(super) task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
+}
 
-struct AsyncMqttEventLoopTask {
-    runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
-    task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
+pub enum AsyncMqttEventLoopTask {
+    Instanced(InstancedAsyncMqttEventLoopTask),
 }
 
 struct AsyncModuleRuntime {
@@ -85,48 +92,37 @@ impl UninitializedAppContext {
     }
 }
 
-fn create_async_mqtt_event_loop_task(
-    event_loop: rumqttc::EventLoop,
-    event_channel_sender: mpsc::Sender<rumqttc::Event>,
-) -> AsyncMqttEventLoopTask {
-    let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
-
-    let mqtt_event_loop_task_handle = tokio::spawn(async move {
-        async_mqtt_event_loop_task(
-            event_channel_sender,
-            mqtt_event_loop_runtime_receiver,
-            event_loop,
-        )
-        .await
-    });
-
-    AsyncMqttEventLoopTask {
-        runtime_event_sender: mqtt_event_loop_runtime_sender,
-        task_handle: mqtt_event_loop_task_handle,
-    }
-}
-
 impl InitializedAsyncAppContext {
     async fn cleanup_finished_module(
         &mut self,
         async_module_runtime: AsyncModuleRuntime,
     ) -> anyhow::Result<()> {
         if let Some(mqtt_connection) = &async_module_runtime.store.data().mqtt_connection {
-            if let Err(e) = mqtt_connection.disconnect().await {
-                log::error!("Error disconnecting MQTT client: {}", e);
+            match mqtt_connection {
+                AsyncMqttConnection::MessageBusShared(_) => todo!(),
+                AsyncMqttConnection::LockShared(_) => todo!(),
+                AsyncMqttConnection::Instanced(connection) => {
+                    if let Err(e) = connection.disconnect().await {
+                        log::error!("Error disconnecting MQTT client: {}", e);
+                    }
+                }
             }
         }
 
         if let Some(mqtt_event_loop_task_info) =
             async_module_runtime.module_mqtt_event_loop_task_info
         {
-            mqtt_event_loop_task_info
-                .runtime_event_sender
-                .send(RuntimeEvent::RuntimeTaskStop)
-                .await?;
+            match mqtt_event_loop_task_info {
+                AsyncMqttEventLoopTask::Instanced(mqtt_event_loop_task_info) => {
+                    mqtt_event_loop_task_info
+                        .runtime_event_sender
+                        .send(RuntimeEvent::RuntimeTaskStop)
+                        .await?;
 
-            if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
-                log::error!("Error waiting on event loop task to finish: {}", e);
+                    if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
+                        log::error!("Error waiting on event loop task to finish: {}", e);
+                    }
+                }
             }
         }
 
@@ -140,29 +136,21 @@ impl InitializedAsyncAppContext {
         module_template: &InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
     ) -> anyhow::Result<tokio::task::JoinHandle<AsyncModuleRuntime>> {
         let mut mqtt_connection = None;
-        let mut module_mqtt_event_loop_task_info = None;
+        let mut module_mqtt_event_loop_task_info: Option<AsyncMqttEventLoopTask> = None;
 
-        if let Some(mqtt_runtime) =
-            initialize_async_mqtt_for_module(&module_template.runtime_config)
-        {
-            match mqtt_runtime {
-                Ok(AsyncMqttRuntime {
-                    mqtt,
-                    event_loop,
-                    event_channel_sender,
-                }) => {
-                    mqtt_connection = Some(mqtt);
-
-                    module_mqtt_event_loop_task_info = Some(create_async_mqtt_event_loop_task(
-                        event_loop,
-                        event_channel_sender,
-                    ));
+        if let Some(mqtt_config) = &module_template.runtime_config.mqtt {
+            match create_async_mqtt_runtime(mqtt_config) {
+                Ok((connection, event_loop_task_info)) => {
+                    mqtt_connection = Some(connection);
+                    module_mqtt_event_loop_task_info = Some(event_loop_task_info);
                 }
-                Err(e) => log::error!(
-                    "Error starting MQTT runtime for module '{}': {}",
-                    module_name,
-                    e
-                ),
+                Err(e) => {
+                    bail!(
+                        "Error starting mqtt runtime for module '{}': {}",
+                        module_name,
+                        e
+                    )
+                }
             }
         }
 

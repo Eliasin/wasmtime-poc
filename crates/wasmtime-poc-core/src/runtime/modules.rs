@@ -7,8 +7,22 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use super::RuntimeEvent;
-use crate::{api::fio_async_api::AsyncFileIOState, api::mqtt_async_api::AsyncMqttConnection};
+use super::{AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, RuntimeEvent};
+use crate::{
+    api::fio_async_api::AsyncFileIOState,
+    api::mqtt_async_api::{AsyncMqttConnection, InstancedAsyncMqttConnection},
+};
+
+#[derive(Deserialize, Clone, Copy)]
+#[serde(untagged)]
+pub enum MqttFlavor {
+    #[serde(rename(deserialize = "instanced"))]
+    Instanced,
+    #[serde(rename(deserialize = "shared_lock"))]
+    SharedLock,
+    #[serde(rename(deserialize = "shared_message_bus"))]
+    SharedMessageBus,
+}
 
 #[derive(Deserialize, Clone)]
 pub struct MqttRuntimeConfig {
@@ -18,6 +32,7 @@ pub struct MqttRuntimeConfig {
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
     event_channel_bound: Option<u32>,
+    flavor: Option<MqttFlavor>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -89,7 +104,9 @@ pub struct AsyncWasmModuleStore {
     pub env: HashMap<String, String>,
 }
 
-fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncMqttRuntime> {
+fn create_instanced_mqtt_runtime(
+    mqtt_config: &MqttRuntimeConfig,
+) -> anyhow::Result<AsyncMqttRuntime> {
     let mut mqtt_options = rumqttc::MqttOptions::new(
         mqtt_config.id.clone(),
         mqtt_config.host.clone(),
@@ -104,12 +121,12 @@ fn create_mqtt_runtime(mqtt_config: &MqttRuntimeConfig) -> anyhow::Result<AsyncM
     let (mqtt_event_sender, mqtt_event_receiver) = mpsc::channel(event_channel_bound);
 
     Ok(AsyncMqttRuntime {
-        mqtt: AsyncMqttConnection::new(
+        mqtt: AsyncMqttConnection::Instanced(InstancedAsyncMqttConnection::new(
             client,
             mqtt_event_receiver,
             mqtt_config.allowed_sub_topics.clone(),
             mqtt_config.allowed_pub_topics.clone(),
-        ),
+        )),
         event_channel_sender: mqtt_event_sender,
         event_loop,
     })
@@ -142,7 +159,7 @@ fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<AsyncF
     })
 }
 
-pub async fn async_mqtt_event_loop_task(
+pub async fn async_instanced_mqtt_event_loop_task(
     event_channel_sender: mpsc::Sender<rumqttc::Event>,
     mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
     mut event_loop: rumqttc::EventLoop,
@@ -170,10 +187,48 @@ pub async fn async_mqtt_event_loop_task(
     }
 }
 
-pub fn initialize_async_mqtt_for_module(
-    module_runtime_config: &ModuleRuntimeConfig,
-) -> Option<anyhow::Result<AsyncMqttRuntime>> {
-    module_runtime_config.mqtt.as_ref().map(create_mqtt_runtime)
+fn create_instanced_async_mqtt_event_loop_task(
+    event_loop: rumqttc::EventLoop,
+    event_channel_sender: mpsc::Sender<rumqttc::Event>,
+) -> InstancedAsyncMqttEventLoopTask {
+    let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
+
+    let mqtt_event_loop_task_handle = tokio::spawn(async move {
+        async_instanced_mqtt_event_loop_task(
+            event_channel_sender,
+            mqtt_event_loop_runtime_receiver,
+            event_loop,
+        )
+        .await
+    });
+
+    InstancedAsyncMqttEventLoopTask {
+        runtime_event_sender: mqtt_event_loop_runtime_sender,
+        task_handle: mqtt_event_loop_task_handle,
+    }
+}
+
+pub fn create_async_mqtt_runtime(
+    mqtt_config: &MqttRuntimeConfig,
+) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
+    match mqtt_config.flavor.unwrap_or(MqttFlavor::Instanced) {
+        MqttFlavor::SharedLock => todo!(),
+        MqttFlavor::SharedMessageBus => todo!(),
+        MqttFlavor::Instanced => {
+            let AsyncMqttRuntime {
+                mqtt,
+                event_channel_sender,
+                event_loop,
+            } = create_instanced_mqtt_runtime(mqtt_config)?;
+
+            let mqtt_connection = mqtt;
+            let module_mqtt_event_loop_task_info = AsyncMqttEventLoopTask::Instanced(
+                create_instanced_async_mqtt_event_loop_task(event_loop, event_channel_sender),
+            );
+
+            Ok((mqtt_connection, module_mqtt_event_loop_task_info))
+        }
+    }
 }
 
 pub fn initialize_fio_for_module(
