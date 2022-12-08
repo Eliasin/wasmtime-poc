@@ -153,6 +153,11 @@ impl InitializedAsyncAppContext {
         );
 
         if let Some(mqtt_connection) = &async_module_runtime.store.data().mqtt_connection {
+            log::debug!(
+                "Module {} has mqtt connection that requires cleanup",
+                async_module_runtime.module_name
+            );
+
             match mqtt_connection {
                 AsyncMqttConnection::MessageBusShared(connection) => {
                     let shared_runtime_event_loop = self.shared_mqtt_event_loops.iter_mut().find(
@@ -243,7 +248,7 @@ impl InitializedAsyncAppContext {
                     use super::MqttFlavor::*;
 
                     let runtime_id: String = config.runtime_id.clone();
-                    log::debug!("Starting shared mqtt event loop id {}", runtime_id);
+                    log::info!("Starting shared mqtt event loop id {}", runtime_id);
                     match config.flavor {
                         SharedMessageBus => {
                             let mut mqtt_options = rumqttc::MqttOptions::new(
@@ -562,8 +567,8 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                 match notification {
                     Ok(notification) => {
                         for module_event_sender in module_event_senders.values_mut() {
-                            if let Err(e) = module_event_sender.send(notification.clone()).await {
-                                log::error!("Error sending MQTT notification to event channel: {}", e);
+                            if let Err(_) = module_event_sender.send(notification.clone()).await {
+                                log::debug!("Error sending mqtt event to module event channel, module is probably awaiting cleanup")
                             }
                         }
                     },
@@ -578,11 +583,18 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                         return Err(anyhow!("Runtime event channel unexpectedly closed"));
                     },
                     Some(runtime_event) => match runtime_event {
-                        RuntimeEvent::RuntimeTaskStop => return Ok(()),
+                        RuntimeEvent::RuntimeTaskStop => {
+                            break
+                        },
                     }
                 }
             },
-            else => { return Ok(()); },
         }
     }
+
+    log::info!(
+        "MQTT shared message bus event loop id {} stopping",
+        runtime_id
+    );
+    Ok(())
 }
