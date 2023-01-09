@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail};
+use anyhow::bail;
 use futures::{stream::FuturesUnordered, StreamExt};
 use rand::{rngs::OsRng, RngCore};
 use std::{collections::HashMap, sync::Arc, time::Duration};
@@ -615,7 +615,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                         }
                     },
                     None => {
-                        return Err(anyhow!("Runtime module event channel unexpectedly closed"))
+                        bail!("Runtime module event channel unexpectedly closed")
                     }
                 }
             },
@@ -634,7 +634,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                         }
                     },
                     None => {
-                        return Err(anyhow!("Runtime module event channel unexpectedly closed"))
+                        bail!("Runtime module event channel unexpectedly closed")
                     },
                 }
             },
@@ -655,7 +655,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
             runtime_event = runtime_event_receiver.recv() => {
                 match runtime_event {
                     None => {
-                        return Err(anyhow!("Runtime event channel unexpectedly closed"));
+                        bail!("Runtime event channel unexpectedly closed")
                     },
                     Some(runtime_event) => match runtime_event {
                         RuntimeEvent::RuntimeTaskStop => {

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use serde_derive::Deserialize;
 use std::{
     collections::HashMap,
@@ -208,13 +208,13 @@ pub async fn async_instanced_mqtt_event_loop_task(
         tokio::select! {
             notification = event_loop.poll() => {
                 if let Err(e) = event_channel_sender.send(notification?).await {
-                    return Err(anyhow!("Error sending MQTT notification to event channel: {}", e));
+                    bail!("Error sending MQTT notification to event channel: {}", e);
                 }
             },
             runtime_event = runtime_event_receiver.recv() => {
                 match runtime_event {
                     None => {
-                        return Err(anyhow!("Runtime event channel unexpectedly closed"));
+                        bail!("Runtime event channel unexpectedly closed");
                     },
                     Some(runtime_event) => match runtime_event {
                         RuntimeEvent::RuntimeTaskStop => return Ok(()),

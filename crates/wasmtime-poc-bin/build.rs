@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, bail, Context};
 use cargo_toml::{Manifest, Value};
 
 use std::fs;
@@ -16,10 +16,7 @@ fn wait_for_path_deletion<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
         }
     }
 
-    return Err(anyhow!(
-        "Timed out waiting for {} to be deleted",
-        path.display()
-    ));
+    bail!("Timed out waiting for {} to be deleted", path.display());
 }
 
 fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
@@ -32,10 +29,7 @@ fn wait_for_path_creation<P: AsRef<Path>>(path: P) -> anyhow::Result<()> {
         }
     }
 
-    return Err(anyhow!(
-        "Timed out waiting for {} to be created",
-        path.display()
-    ));
+    bail!("Timed out waiting for {} to be created", path.display());
 }
 
 const MODULE_BUILD_DIR: &str = "../../module-build/";
@@ -153,7 +147,7 @@ fn build_modules() -> anyhow::Result<()> {
                 let module_cargo_toml_file_path = module_path.join(Path::new("Cargo.toml"));
                 let manifest = match Manifest::<Value>::from_path(&module_cargo_toml_file_path) {
                     Ok(manifest) => manifest,
-                    Err(e) => return Err(anyhow!("Could not parse module manifest for module at path {}. Internal error is: {:?}", module_cargo_toml_file_path.display(), e)),
+                    Err(e) => bail!("Could not parse module manifest for module at path {}. Internal error is: {:?}", module_cargo_toml_file_path.display(), e),
                 };
 
                 manifest
@@ -169,12 +163,12 @@ fn build_modules() -> anyhow::Result<()> {
                 .iter()
                 .find(|(_, name)| *name == module_package_name)
             {
-                return Err(anyhow!(
+                bail!(
                     "Module name {} is duplicated, found in {} and {}",
                     module_package_name,
                     conflicting_module_path.display(),
                     module_path.display()
-                ));
+                );
             }
 
             modules.push((module_path.clone(), module_package_name.clone()));
