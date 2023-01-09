@@ -7,15 +7,16 @@ use std::{
 };
 use tokio::sync::mpsc;
 
-use super::{
-    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, MessageBusSharedMqttModuleEvent,
-    ModuleInstanceId, RuntimeEvent, SharedMqttEventLoop,
-};
 use crate::{
     api::fio_async_api::AsyncFileIOState,
     api::mqtt_async_api::{
         AsyncMqttConnection, InstancedAsyncMqttConnection, MessageBusSharedAsyncMqttConnection,
     },
+};
+
+use super::{
+    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, MessageBusSharedMqttModuleEvent,
+    ModuleInstanceId, RuntimeEvent, SharedMqttEventLoop,
 };
 
 #[derive(Deserialize, Clone)]

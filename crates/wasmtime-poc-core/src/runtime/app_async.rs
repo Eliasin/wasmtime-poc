@@ -1,5 +1,6 @@
 use anyhow::bail;
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
 use rand::{rngs::OsRng, RngCore};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::{sync::mpsc, task::JoinError};
@@ -7,6 +8,9 @@ use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
 };
+
+pub use async_module_runtime::*;
+mod async_module_runtime;
 
 pub const APP_ASYNC_DEBUG_TARGET: &str = "wasmtime_poc_core::runtime::app_async";
 
@@ -26,46 +30,6 @@ wasmtime::component::bindgen!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });
-
-pub struct InstancedAsyncMqttEventLoopTask {
-    pub(super) runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
-    pub(super) task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
-}
-
-pub enum AsyncMqttEventLoopTask {
-    Instanced(InstancedAsyncMqttEventLoopTask),
-    LockShared,
-    MessageBusShared,
-}
-
-struct AsyncModuleRuntime {
-    store: Store<AsyncWasmModuleStore>,
-    module_mqtt_event_loop_task_info: Option<AsyncMqttEventLoopTask>,
-    module_instance_id: ModuleInstanceId,
-    module_name: String,
-}
-
-pub type ModuleInstanceId = u64;
-
-pub enum MessageBusSharedMqttModuleEvent {
-    NewModule {
-        id: ModuleInstanceId,
-        module_mqtt_event_sender: tokio::sync::mpsc::Sender<rumqttc::Event>,
-    },
-    ModuleFinished {
-        id: ModuleInstanceId,
-    },
-}
-
-pub enum LockSharedMqttModuleEvent {
-    NewModule {
-        id: ModuleInstanceId,
-        module_mqtt_event_receiver: tokio::sync::mpsc::Sender<rumqttc::Event>,
-    },
-    ModuleFinished {
-        id: ModuleInstanceId,
-    },
-}
 
 pub enum SharedMqttEventLoop {
     SharedLock {
