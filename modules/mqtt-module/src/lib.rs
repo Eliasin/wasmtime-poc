@@ -132,4 +132,8 @@ impl apis::Apis for Start {
             _ => Err("Unrecognized instance name".to_string()),
         }
     }
+
+    fn start_with_arg(data: Vec<u8>) -> Result<(), String> {
+        Err("Module does not support bytes arg".to_string())
+    }
 }

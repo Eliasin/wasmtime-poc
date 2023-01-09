@@ -19,7 +19,7 @@ use crate::api::{
 use super::{
     create_async_mqtt_runtime, initialize_fio_for_module, AsyncWasmModuleStore, InitializedModule,
     ModuleRuntimeConfig, RuntimeEvent, SharedMqttRuntimeConfig, SharedMqttRuntimeId,
-    UninitializedAppContext,
+    UninitializedAppContext, UninitializedModule,
 };
 
 wit_bindgen_host_wasmtime_rust::generate!({
@@ -90,6 +90,34 @@ pub struct InitializedAsyncAppContext {
 }
 
 impl UninitializedAppContext {
+    fn initialize_module(
+        engine: &Engine,
+        module_name: String,
+        module: UninitializedModule<ModuleRuntimeConfig>,
+    ) -> anyhow::Result<(
+        String,
+        InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
+    )> {
+        let mut linker = Linker::<AsyncWasmModuleStore>::new(engine);
+
+        let compiled_module = Component::from_binary(engine, &module.bytes)?;
+
+        mqtt_async_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
+        debug_async_api::add_to_linker(&mut linker, |s| s)?;
+        env_async_api::add_to_linker(&mut linker, |s| s)?;
+        util_async_api::add_to_linker(&mut linker, |s| s)?;
+        fio_async_api::add_to_linker(&mut linker, |s| &mut s.fio)?;
+
+        Ok((
+            module_name,
+            InitializedModule::<AsyncWasmModuleStore, ModuleRuntimeConfig> {
+                module: compiled_module,
+                linker,
+                runtime_config: module.runtime_config,
+            },
+        ))
+    }
+
     pub fn async_initialize_modules(self) -> anyhow::Result<InitializedAsyncAppContext> {
         let mut engine_config = Config::new();
         engine_config
@@ -105,31 +133,9 @@ impl UninitializedAppContext {
         > = self
             .modules
             .into_iter()
-            .map(
-                |(module_name, module)| -> anyhow::Result<(
-                    String,
-                    InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
-                )> {
-                    let mut linker = Linker::<AsyncWasmModuleStore>::new(&engine);
-
-                    let compiled_module = Component::from_binary(&engine, &module.bytes)?;
-
-                    mqtt_async_api::add_to_linker(&mut linker, |s| &mut s.mqtt_connection)?;
-                    debug_async_api::add_to_linker(&mut linker, |s| s)?;
-                    env_async_api::add_to_linker(&mut linker, |s| s)?;
-                    util_async_api::add_to_linker(&mut linker, |s| s)?;
-                    fio_async_api::add_to_linker(&mut linker, |s| &mut s.fio)?;
-
-                    Ok((
-                        module_name,
-                        InitializedModule::<AsyncWasmModuleStore, ModuleRuntimeConfig> {
-                            module: compiled_module,
-                            linker,
-                            runtime_config: module.runtime_config,
-                        },
-                    ))
-                },
-            )
+            .map(|(module_name, module)| {
+                UninitializedAppContext::initialize_module(&engine, module_name, module)
+            })
             .collect();
 
         Ok(InitializedAsyncAppContext {
@@ -142,6 +148,77 @@ impl UninitializedAppContext {
 }
 
 impl InitializedAsyncAppContext {
+    async fn cleanup_module_mqtt_connection(
+        &mut self,
+        module_instance_id: u64,
+        mqtt_connection: &AsyncMqttConnection,
+    ) -> anyhow::Result<()> {
+        match mqtt_connection {
+            AsyncMqttConnection::MessageBusShared(connection) => {
+                let shared_runtime_event_loop =
+                    self.shared_mqtt_event_loops
+                        .iter_mut()
+                        .find(|(event_loop_runtime_id, _)| {
+                            *event_loop_runtime_id == connection.runtime_id()
+                        });
+
+                match shared_runtime_event_loop {
+                    Some((_, shared_runtime_event_loop)) => match shared_runtime_event_loop {
+                        SharedMqttEventLoop::SharedLock {
+                            mqtt_client: _,
+                            module_event_sender: _,
+                            runtime_event_sender: _,
+                            task_handle: _,
+                        } => {
+                            bail!(
+                                "Inconsistency detected in shared mqtt
+                                    runtimes, runtime event loop for shared lock
+                                    flavor matches message bus module runtime_id"
+                            );
+                        }
+                        SharedMqttEventLoop::SharedMessageBus {
+                            mqtt_client_action_sender: _,
+                            module_event_sender,
+                            runtime_event_sender: _,
+                            task_handle: _,
+                        } => {
+                            if let Err(e) = module_event_sender
+                                .send(MessageBusSharedMqttModuleEvent::ModuleFinished {
+                                    id: module_instance_id,
+                                })
+                                .await
+                            {
+                                log::error!(
+                                    "Error sending module finish event to
+                                        shared mqtt runtime {} while cleaning up
+                                        module instance {}: {}",
+                                    connection.runtime_id(),
+                                    module_instance_id,
+                                    e
+                                );
+                            }
+                        }
+                    },
+                    None => {
+                        log::error!(
+                                "Could not find shared mqtt module runtime {} in module cleanup for module {}",
+                                connection.runtime_id(),
+                                module_instance_id
+                            )
+                    }
+                }
+            }
+            AsyncMqttConnection::LockShared(_) => todo!(),
+            AsyncMqttConnection::Instanced(connection) => {
+                if let Err(e) = connection.disconnect().await {
+                    log::error!("Error disconnecting MQTT client: {}", e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn cleanup_finished_module(
         &mut self,
         async_module_runtime: AsyncModuleRuntime,
@@ -152,78 +229,43 @@ impl InitializedAsyncAppContext {
             async_module_runtime.module_instance_id
         );
 
-        if let Some(mqtt_connection) = &async_module_runtime.store.data().mqtt_connection {
+        let AsyncModuleRuntime {
+            store,
+            module_mqtt_event_loop_task_info,
+            module_instance_id,
+            module_name,
+        } = async_module_runtime;
+
+        if let Some(mqtt_connection) = &store.data().mqtt_connection {
             log::debug!(
-                "Module {} has mqtt connection that requires cleanup",
-                async_module_runtime.module_name
+                "Module {module_name} instance {module_instance_id} has mqtt connection that requires cleanup",
             );
 
-            match mqtt_connection {
-                AsyncMqttConnection::MessageBusShared(connection) => {
-                    let shared_runtime_event_loop = self.shared_mqtt_event_loops.iter_mut().find(
-                        |(event_loop_runtime_id, _)| {
-                            *event_loop_runtime_id == connection.runtime_id()
-                        },
-                    );
-
-                    match shared_runtime_event_loop {
-                        Some((_, shared_runtime_event_loop)) => match shared_runtime_event_loop {
-                            SharedMqttEventLoop::SharedLock {
-                                mqtt_client: _,
-                                module_event_sender: _,
-                                runtime_event_sender: _,
-                                task_handle: _,
-                            } => {
-                                bail!(
-                                    "Inconsistency detected in shared mqtt
-                                    runtimes, runtime event loop for shared lock
-                                    flavor matches message bus module runtime_id"
-                                );
-                            }
-                            SharedMqttEventLoop::SharedMessageBus {
-                                mqtt_client_action_sender: _,
-                                module_event_sender,
-                                runtime_event_sender: _,
-                                task_handle: _,
-                            } => {
-                                if let Err(e) = module_event_sender
-                                    .send(MessageBusSharedMqttModuleEvent::ModuleFinished {
-                                        id: async_module_runtime.module_instance_id,
-                                    })
-                                    .await
-                                {
-                                    log::error!(
-                                        "Error sending module finish event to
-                                        shared mqtt runtime {} while cleaning up
-                                        module instance {}: {}",
-                                        connection.runtime_id(),
-                                        async_module_runtime.module_instance_id,
-                                        e
-                                    );
-                                }
-                            }
-                        },
-                        None => {
-                            log::error!(
-                                "Could not find shared mqtt module runtime {} in module cleanup for module {}",
-                                connection.runtime_id(),
-                                async_module_runtime.module_instance_id
-                            )
-                        }
-                    }
-                }
-                AsyncMqttConnection::LockShared(_) => todo!(),
-                AsyncMqttConnection::Instanced(connection) => {
-                    if let Err(e) = connection.disconnect().await {
-                        log::error!("Error disconnecting MQTT client: {}", e);
-                    }
-                }
+            if let Err(e) = self
+                .cleanup_module_mqtt_connection(
+                    async_module_runtime.module_instance_id,
+                    mqtt_connection,
+                )
+                .await
+            {
+                log::error!(
+                    "Module {module_name} instance {module_instance_id} experienced error in mqtt cleanup: {e}",
+                );
+            } else {
+                log::debug!(
+                    "Module {module_name} instance {module_instance_id} finished mqtt cleanup",
+                );
             }
         }
 
         if let Some(AsyncMqttEventLoopTask::Instanced(mqtt_event_loop_task_info)) =
-            async_module_runtime.module_mqtt_event_loop_task_info
+            module_mqtt_event_loop_task_info
         {
+            log::debug!(
+                "Module {} instance {} has instanced mqtt event loop that must be shut down, sending stop message",
+                module_name,
+                async_module_runtime.module_instance_id
+            );
             mqtt_event_loop_task_info
                 .runtime_event_sender
                 .send(RuntimeEvent::RuntimeTaskStop)
@@ -231,10 +273,28 @@ impl InitializedAsyncAppContext {
 
             if let Err(e) = mqtt_event_loop_task_info.task_handle.await? {
                 log::error!("Error waiting on event loop task to finish: {}", e);
+            } else {
+                log::debug!(
+                    "Module {} instance {} instanced mqtt event loop sucessfully shut down",
+                    module_name,
+                    module_instance_id
+                );
             }
         }
 
-        drop(async_module_runtime.store);
+        log::debug!(
+            "Module {} instance {} finished cleanup, dropping store",
+            module_name,
+            module_instance_id
+        );
+
+        drop(store);
+
+        log::debug!(
+            "Module {} instance {} finished cleanup and store sucessfully droppped",
+            module_name,
+            module_instance_id
+        );
         Ok(())
     }
 
@@ -567,13 +627,13 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                 match notification {
                     Ok(notification) => {
                         for module_event_sender in module_event_senders.values_mut() {
-                            if let Err(_) = module_event_sender.send(notification.clone()).await {
+                            if module_event_sender.send(notification.clone()).await.is_err() {
                                 log::debug!("Error sending mqtt event to module event channel, module is probably awaiting cleanup")
                             }
                         }
                     },
                     Err(e) => {
-                        log::error!("Error in shared mqtt runtime {}: {}", runtime_id, e);
+                        log::error!("Error in shared mqtt runtime {runtime_id}: {e}");
                     }
                 }
             },

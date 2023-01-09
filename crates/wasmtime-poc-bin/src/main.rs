@@ -14,12 +14,18 @@ struct Args {
     app_debug: String,
     #[clap(short, long, default_value = "warn")]
     module_debug: String,
+    #[clap(long)]
+    coredump_on_panic: bool,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     console_subscriber::init();
+
+    if args.coredump_on_panic {
+        coredump::register_panic_handler().map_err(|e| anyhow::anyhow!("{e:?}"))?;
+    }
 
     let app_debug_level = log::Level::from_str(&args.app_debug)?.to_level_filter();
     let module_debug_level = log::Level::from_str(&args.module_debug)?.to_level_filter();

@@ -333,6 +333,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
+name = "coredump"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4079960e8d47c5f7f6b36b61b2a462ad85eafaf2b1748bab2f71ddd6df6a7b0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cpp_demangle"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2511,6 +2520,7 @@ dependencies = [
  "chrono",
  "clap",
  "console-subscriber",
+ "coredump",
  "fern",
  "log",
  "tokio",
