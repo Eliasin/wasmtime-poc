@@ -2,7 +2,7 @@ use anyhow::bail;
 use futures::{stream::FuturesUnordered, StreamExt};
 use rand::{rngs::OsRng, RngCore};
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task::JoinError};
 use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
@@ -380,6 +380,20 @@ impl InitializedAsyncAppContext {
             .collect()
     }
 
+    async fn handle_module_join(
+        &mut self,
+        async_module_runtime: anyhow::Result<AsyncModuleRuntime, JoinError>,
+    ) {
+        match async_module_runtime {
+            Ok(async_module_runtime) => {
+                if let Err(e) = self.cleanup_finished_module(async_module_runtime).await {
+                    log::error!("Error in async module cleanup: {e}")
+                }
+            }
+            Err(e) => log::error!("Error detected in async module execution, cleanup not run: {e}"),
+        }
+    }
+
     async fn start_module(
         engine: &Engine,
         module_name: &str,
@@ -565,7 +579,7 @@ impl InitializedAsyncAppContext {
         }
 
         while let Some(async_module_runtime) = executing_modules.next().await {
-            self.cleanup_finished_module(async_module_runtime?).await?;
+            self.handle_module_join(async_module_runtime).await;
         }
 
         self.cleanup_shared_mqtt_event_loops().await?;
