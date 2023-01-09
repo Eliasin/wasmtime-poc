@@ -150,7 +150,7 @@ impl UninitializedAppContext {
 impl InitializedAsyncAppContext {
     async fn cleanup_module_mqtt_connection(
         &mut self,
-        module_instance_id: u64,
+        module_instance_id: ModuleInstanceId,
         mqtt_connection: &AsyncMqttConnection,
     ) -> anyhow::Result<()> {
         match mqtt_connection {
@@ -298,70 +298,85 @@ impl InitializedAsyncAppContext {
         Ok(())
     }
 
+    fn start_shared_message_bus_event_loop(
+        runtime_id: String,
+        client_id: String,
+        host: String,
+        port: u16,
+    ) -> anyhow::Result<(SharedMqttRuntimeId, SharedMqttEventLoop)> {
+        let mut mqtt_options = rumqttc::MqttOptions::new(client_id, host, port);
+        mqtt_options.set_keep_alive(Duration::from_secs(5));
+
+        let (client, event_loop) = rumqttc::AsyncClient::new(mqtt_options, 10);
+
+        let (module_event_sender, module_event_receiver) = mpsc::channel(32);
+        let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
+
+        let (mqtt_client_action_sender, mqtt_client_action_receiver) = mpsc::channel(32);
+
+        let runtime_id_cloned = runtime_id.clone();
+        let mqtt_event_loop_task_handle = tokio::spawn(async move {
+            async_shared_message_bus_mqtt_event_loop_task(
+                module_event_receiver,
+                mqtt_event_loop_runtime_receiver,
+                mqtt_client_action_receiver,
+                client,
+                event_loop,
+                runtime_id_cloned,
+            )
+            .await
+        });
+
+        log::debug!(
+            "Done starting shared message bus mqtt event loop id {}",
+            runtime_id
+        );
+        Ok((
+            runtime_id,
+            SharedMqttEventLoop::SharedMessageBus {
+                mqtt_client_action_sender,
+                module_event_sender,
+                runtime_event_sender: mqtt_event_loop_runtime_sender,
+                task_handle: mqtt_event_loop_task_handle,
+            },
+        ))
+    }
+
+    fn start_shared_mqtt_event_loop(
+        config: &SharedMqttRuntimeConfig,
+    ) -> anyhow::Result<(SharedMqttRuntimeId, SharedMqttEventLoop)> {
+        use super::MqttFlavor::*;
+
+        let SharedMqttRuntimeConfig {
+            runtime_id,
+            client_id,
+            host,
+            port,
+            flavor,
+        } = config;
+
+        log::info!("Starting shared mqtt event loop id {}", runtime_id);
+        match flavor {
+            SharedMessageBus => Self::start_shared_message_bus_event_loop(
+                runtime_id.clone(),
+                client_id.clone(),
+                host.clone(),
+                *port,
+            ),
+            SharedLock => todo!(),
+            Instanced => bail!(
+                "Shared MQTT runtime config with id {} must be a 'shared' flavor",
+                config.runtime_id
+            ),
+        }
+    }
+
     fn start_shared_mqtt_event_loops(
         shared_mqtt_runtime_configs: &[SharedMqttRuntimeConfig],
     ) -> anyhow::Result<Vec<(SharedMqttRuntimeId, SharedMqttEventLoop)>> {
         shared_mqtt_runtime_configs
             .iter()
-            .map(
-                |config| -> anyhow::Result<(SharedMqttRuntimeId, SharedMqttEventLoop)> {
-                    use super::MqttFlavor::*;
-
-                    let runtime_id: String = config.runtime_id.clone();
-                    log::info!("Starting shared mqtt event loop id {}", runtime_id);
-                    match config.flavor {
-                        SharedMessageBus => {
-                            let mut mqtt_options = rumqttc::MqttOptions::new(
-                                config.client_id.clone(),
-                                config.host.clone(),
-                                config.port,
-                            );
-                            mqtt_options.set_keep_alive(Duration::from_secs(5));
-
-                            let (client, event_loop) = rumqttc::AsyncClient::new(mqtt_options, 10);
-
-                            let (module_event_sender, module_event_receiver) = mpsc::channel(32);
-                            let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) =
-                                mpsc::channel(32);
-
-                            let (mqtt_client_action_sender, mqtt_client_action_receiver) =
-                                mpsc::channel(32);
-
-                            let runtime_id_cloned = runtime_id.clone();
-                            let mqtt_event_loop_task_handle = tokio::spawn(async move {
-                                async_shared_message_bus_mqtt_event_loop_task(
-                                    module_event_receiver,
-                                    mqtt_event_loop_runtime_receiver,
-                                    mqtt_client_action_receiver,
-                                    client,
-                                    event_loop,
-                                    runtime_id_cloned,
-                                )
-                                .await
-                            });
-
-                            log::debug!(
-                                "Done starting shared message bus mqtt event loop id {}",
-                                runtime_id
-                            );
-                            Ok((
-                                config.runtime_id.clone(),
-                                SharedMqttEventLoop::SharedMessageBus {
-                                    mqtt_client_action_sender,
-                                    module_event_sender,
-                                    runtime_event_sender: mqtt_event_loop_runtime_sender,
-                                    task_handle: mqtt_event_loop_task_handle,
-                                },
-                            ))
-                        }
-                        SharedLock => todo!(),
-                        Instanced => bail!(
-                            "Shared MQTT runtime config with id {} must be a 'shared' flavor",
-                            config.runtime_id
-                        ),
-                    }
-                },
-            )
+            .map(InitializedAsyncAppContext::start_shared_mqtt_event_loop)
             .collect()
     }
 
