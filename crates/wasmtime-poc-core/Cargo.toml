@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", features = ["async", "component-model"] }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", features = ["async", "component-model"], rev = "44913825b5e93d40ea4ca4fb3d03ab3aa15e1714" }
 rumqttc = "0.14.0"
 toml = "0.5.9"
 serde = "1.0.144"
 serde_derive = "1.0.144"
 anyhow = "1.0.62"
-wit-bindgen-host-wasmtime-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git", rev = "4bd4371084c9fe57ae236238386d8a5f91217b50" }
 tokio = { version = "1.21.0", features = ["full"] }
 futures = "0.3.25"
 log = "0.4"
 chrono = "0.4.23"
 rand = "0.8.5"
+async-trait = "0.1.61"

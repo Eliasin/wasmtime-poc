@@ -1,6 +1,6 @@
 use crate::runtime::AsyncWasmModuleStore;
 
-wit_bindgen_host_wasmtime_rust::generate!({
+wasmtime::component::bindgen!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });
@@ -9,7 +9,7 @@ pub use debug::add_to_linker;
 
 pub const MODULE_DEBUG_TARGET: &str = "module-debug";
 
-#[wit_bindgen_host_wasmtime_rust::async_trait]
+#[async_trait::async_trait]
 impl debug::Debug for AsyncWasmModuleStore {
     async fn trace(&mut self, msg: String) -> anyhow::Result<()> {
         log::trace!(target: MODULE_DEBUG_TARGET, "{}", msg);

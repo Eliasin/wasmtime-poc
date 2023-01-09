@@ -22,7 +22,7 @@ use super::{
     UninitializedAppContext, UninitializedModule,
 };
 
-wit_bindgen_host_wasmtime_rust::generate!({
+wasmtime::component::bindgen!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });

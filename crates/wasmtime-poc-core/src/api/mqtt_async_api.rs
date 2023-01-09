@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 
-wit_bindgen_host_wasmtime_rust::generate!({
+wasmtime::component::bindgen!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });
@@ -23,7 +23,7 @@ pub enum AsyncMqttConnection {
     Instanced(InstancedAsyncMqttConnection),
 }
 
-#[wit_bindgen_host_wasmtime_rust::async_trait]
+#[async_trait::async_trait]
 impl mqtt::Mqtt for AsyncMqttConnection {
     async fn publish(
         &mut self,
@@ -119,7 +119,7 @@ mod shared_connection_message_bus {
         }
     }
 
-    #[wit_bindgen_host_wasmtime_rust::async_trait]
+    #[async_trait::async_trait]
     impl mqtt::Mqtt for MessageBusSharedAsyncMqttConnection {
         async fn publish(
             &mut self,
@@ -262,7 +262,7 @@ mod shared_connection_lock {
         }
     }
 
-    #[wit_bindgen_host_wasmtime_rust::async_trait]
+    #[async_trait::async_trait]
     impl mqtt::Mqtt for LockSharedAsyncMqttConnection {
         async fn publish(
             &mut self,
@@ -406,7 +406,7 @@ mod instanced_connection {
         }
     }
 
-    #[wit_bindgen_host_wasmtime_rust::async_trait]
+    #[async_trait::async_trait]
     impl mqtt::Mqtt for InstancedAsyncMqttConnection {
         async fn publish(
             &mut self,
@@ -479,7 +479,7 @@ mod instanced_connection {
     }
 }
 
-#[wit_bindgen_host_wasmtime_rust::async_trait]
+#[async_trait::async_trait]
 impl<M: mqtt::Mqtt + Send + Sync> mqtt::Mqtt for Option<M> {
     async fn publish(
         &mut self,

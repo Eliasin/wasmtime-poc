@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-wit_bindgen_host_wasmtime_rust::generate!({
+wasmtime::component::bindgen!({
     path: "../../wit-bindgen/apis.wit",
     async: true,
 });
@@ -50,7 +50,7 @@ fn is_file_operation_allowed(
             .any(|f| file_path.as_ref().starts_with(f))
 }
 
-#[wit_bindgen_host_wasmtime_rust::async_trait]
+#[async_trait::async_trait]
 impl fio::Fio for AsyncFileIOState {
     async fn read_bytes(
         &mut self,
@@ -255,7 +255,7 @@ impl fio::Fio for AsyncFileIOState {
     }
 }
 
-#[wit_bindgen_host_wasmtime_rust::async_trait]
+#[async_trait::async_trait]
 impl<F: fio::Fio + Send + Sync> fio::Fio for Option<F> {
     async fn read_bytes(
         &mut self,
