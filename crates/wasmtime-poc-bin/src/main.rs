@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
 use clap::Parser;
-use wasmtime_poc_core::api::debug_async_api::MODULE_DEBUG_TARGET;
-use wasmtime_poc_core::runtime::APP_ASYNC_DEBUG_TARGET;
-use wasmtime_poc_core::runtime::{AppConfig, UninitializedAppContext};
+use wasmtime_poc_core::APP_ASYNC_DEBUG_TARGET;
+use wasmtime_poc_core::MODULE_DEBUG_TARGET;
+use wasmtime_poc_core::{AppConfig, UninitializedAppContext};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

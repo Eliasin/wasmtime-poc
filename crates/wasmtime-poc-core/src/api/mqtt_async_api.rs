@@ -15,6 +15,8 @@ wasmtime::component::bindgen!({
 
 pub use mqtt::add_to_linker;
 
+use crate::runtime::SharedMqttRuntimeId;
+
 fn map_qos(qos: mqtt::QualityOfService) -> rumqttc::QoS {
     use mqtt::QualityOfService::*;
     use rumqttc::QoS;
@@ -29,6 +31,18 @@ pub enum AsyncMqttConnection {
     MessageBusShared(MessageBusSharedAsyncMqttConnection),
     LockShared(LockSharedAsyncMqttConnection),
     Instanced(InstancedAsyncMqttConnection),
+}
+
+impl AsyncMqttConnection {
+    pub fn runtime_id(&self) -> Option<SharedMqttRuntimeId> {
+        match self {
+            AsyncMqttConnection::MessageBusShared(connection) => {
+                Some(connection.runtime_id().clone())
+            }
+            AsyncMqttConnection::LockShared(connection) => Some(connection.runtime_id().clone()),
+            AsyncMqttConnection::Instanced(_) => None,
+        }
+    }
 }
 
 #[async_trait::async_trait]

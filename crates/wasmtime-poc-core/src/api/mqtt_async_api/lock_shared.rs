@@ -32,10 +32,6 @@ impl LockSharedAsyncMqttConnection {
         }
     }
 
-    pub async fn disconnect(&self) -> anyhow::Result<()> {
-        Ok(self.mqtt_client.disconnect().await?)
-    }
-
     pub fn runtime_id(&self) -> &SharedMqttRuntimeId {
         &self.runtime_id
     }

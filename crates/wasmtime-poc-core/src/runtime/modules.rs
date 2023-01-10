@@ -17,7 +17,8 @@ use crate::{
 
 use super::{
     AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, LockSharedMqttModuleEvent,
-    MessageBusSharedMqttModuleEvent, ModuleInstanceId, RuntimeEvent, SharedMqttEventLoop,
+    MessageBusSharedMqttModuleEvent, ModuleInstanceId, RuntimeEvent, SharedLockEventLoop,
+    SharedMessageBusEventLoop, SharedMqttEventLoop,
 };
 
 #[derive(Deserialize, Clone)]
@@ -31,21 +32,13 @@ pub struct InstancedMqttRuntimeConfig {
 }
 
 #[derive(Deserialize, Clone)]
-#[serde(tag = "flavor")]
+#[serde(untagged)]
 pub enum MqttRuntimeConfig {
-    #[serde(rename = "instanced")]
     Instanced {
         #[serde(flatten)]
         config: InstancedMqttRuntimeConfig,
     },
-    #[serde(rename = "shared_lock")]
-    SharedLock {
-        runtime_id: String,
-        allowed_sub_topics: Vec<String>,
-        allowed_pub_topics: Vec<String>,
-    },
-    #[serde(rename = "shared_message_bus")]
-    SharedMessageBus {
+    Shared {
         runtime_id: String,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
@@ -254,57 +247,53 @@ async fn create_shared_lock_runtime(
     runtime_id: String,
     allowed_sub_topics: &[String],
     allowed_pub_topics: &[String],
-    shared_mqtt_event_loops: &mut HashMap<SharedMqttRuntimeId, SharedMqttEventLoop>,
+    event_loop: &SharedMqttEventLoop,
 ) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
-    let event_loop = shared_mqtt_event_loops
-        .iter_mut()
-        .find(|(event_loop_runtime_id, _)| **event_loop_runtime_id == runtime_id);
-
     match event_loop {
-        Some((_, event_loop)) => match event_loop {
-            SharedMqttEventLoop::SharedLock {
-                mqtt_client,
-                module_event_sender,
-                runtime_event_sender: _,
-                task_handle: _,
-            } => {
-                let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
+        SharedMqttEventLoop::SharedLock(SharedLockEventLoop {
+            mqtt_client,
+            module_event_sender,
+            runtime_event_sender: _,
+            task_handle: _,
+        }) => {
+            let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
 
-                if let Err(e) = module_event_sender
-                    .send(LockSharedMqttModuleEvent::NewModule {
-                        id: module_instance_id,
-                        module_mqtt_event_sender: mqtt_event_sender,
-                    })
-                    .await
-                {
-                    bail!("Failed to send new module event to shared message bus shared mqtt runtime: {}", e)
-                }
-
-                let mqtt_connection =
-                    AsyncMqttConnection::LockShared(LockSharedAsyncMqttConnection::new(
-                        mqtt_client.clone(),
-                        mqtt_event_receiver,
-                        allowed_sub_topics.to_vec(),
-                        allowed_pub_topics.to_vec(),
-                        runtime_id,
-                    ));
-
-                Ok((mqtt_connection, AsyncMqttEventLoopTask::LockShared))
-            }
-            SharedMqttEventLoop::SharedMessageBus {
-                mqtt_client_action_sender: _,
-                module_event_sender: _,
-                runtime_event_sender: _,
-                task_handle: _,
-            } => {
+            if let Err(e) = module_event_sender
+                .send(LockSharedMqttModuleEvent::NewModule {
+                    id: module_instance_id,
+                    module_mqtt_event_sender: mqtt_event_sender,
+                })
+                .await
+            {
                 bail!(
-                    "Inconsistency detected in shared mqtt
+                    "Failed to send new module event to shared message bus shared mqtt runtime: {}",
+                    e
+                )
+            }
+
+            let mqtt_connection =
+                AsyncMqttConnection::LockShared(LockSharedAsyncMqttConnection::new(
+                    mqtt_client.clone(),
+                    mqtt_event_receiver,
+                    allowed_sub_topics.to_vec(),
+                    allowed_pub_topics.to_vec(),
+                    runtime_id,
+                ));
+
+            Ok((mqtt_connection, AsyncMqttEventLoopTask::LockShared))
+        }
+        SharedMqttEventLoop::SharedMessageBus(SharedMessageBusEventLoop {
+            mqtt_client_action_sender: _,
+            module_event_sender: _,
+            runtime_event_sender: _,
+            task_handle: _,
+        }) => {
+            bail!(
+                "Inconsistency detected in shared mqtt
                             runtimes, runtime event loop for message bus 
                             flavor matches shared lock module runtime_id"
-                );
-            }
-        },
-        None => bail!("No shared mqtt runtime found with id {}", runtime_id),
+            );
+        }
     }
 }
 
@@ -313,58 +302,53 @@ async fn create_shared_message_bus_runtime(
     runtime_id: String,
     allowed_sub_topics: &[String],
     allowed_pub_topics: &[String],
-    shared_mqtt_event_loops: &mut HashMap<SharedMqttRuntimeId, SharedMqttEventLoop>,
+    event_loop: &SharedMqttEventLoop,
 ) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
-    let event_loop = shared_mqtt_event_loops
-        .iter_mut()
-        .find(|(event_loop_runtime_id, _)| **event_loop_runtime_id == runtime_id);
-
     match event_loop {
-        Some((_, event_loop)) => match event_loop {
-            SharedMqttEventLoop::SharedLock {
-                mqtt_client: _,
-                module_event_sender: _,
-                runtime_event_sender: _,
-                task_handle: _,
-            } => {
-                bail!(
-                    "Inconsistency detected in shared mqtt
+        SharedMqttEventLoop::SharedLock(SharedLockEventLoop {
+            mqtt_client: _,
+            module_event_sender: _,
+            runtime_event_sender: _,
+            task_handle: _,
+        }) => {
+            bail!(
+                "Inconsistency detected in shared mqtt
                             runtimes, runtime event loop for shared lock
                             flavor matches message bus module runtime_id"
-                );
+            );
+        }
+        SharedMqttEventLoop::SharedMessageBus(SharedMessageBusEventLoop {
+            mqtt_client_action_sender,
+            module_event_sender,
+            runtime_event_sender: _,
+            task_handle: _,
+        }) => {
+            let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
+
+            if let Err(e) = module_event_sender
+                .send(MessageBusSharedMqttModuleEvent::NewModule {
+                    id: module_instance_id,
+                    module_mqtt_event_sender: mqtt_event_sender,
+                })
+                .await
+            {
+                bail!(
+                    "Failed to send new module event to shared message bus shared mqtt runtime: {}",
+                    e
+                )
             }
-            SharedMqttEventLoop::SharedMessageBus {
-                mqtt_client_action_sender,
-                module_event_sender,
-                runtime_event_sender: _,
-                task_handle: _,
-            } => {
-                let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
 
-                if let Err(e) = module_event_sender
-                    .send(MessageBusSharedMqttModuleEvent::NewModule {
-                        id: module_instance_id,
-                        module_mqtt_event_sender: mqtt_event_sender,
-                    })
-                    .await
-                {
-                    bail!("Failed to send new module event to shared message bus shared mqtt runtime: {}", e)
-                }
+            let mqtt_connection =
+                AsyncMqttConnection::MessageBusShared(MessageBusSharedAsyncMqttConnection::new(
+                    mqtt_client_action_sender.clone(),
+                    mqtt_event_receiver,
+                    allowed_sub_topics.to_vec(),
+                    allowed_pub_topics.to_vec(),
+                    runtime_id,
+                ));
 
-                let mqtt_connection = AsyncMqttConnection::MessageBusShared(
-                    MessageBusSharedAsyncMqttConnection::new(
-                        mqtt_client_action_sender.clone(),
-                        mqtt_event_receiver,
-                        allowed_sub_topics.to_vec(),
-                        allowed_pub_topics.to_vec(),
-                        runtime_id,
-                    ),
-                );
-
-                Ok((mqtt_connection, AsyncMqttEventLoopTask::MessageBusShared))
-            }
-        },
-        None => bail!("No shared mqtt runtime found with id {}", runtime_id),
+            Ok((mqtt_connection, AsyncMqttEventLoopTask::MessageBusShared))
+        }
     }
 }
 
@@ -374,33 +358,43 @@ pub async fn create_async_mqtt_runtime(
     shared_mqtt_event_loops: &mut HashMap<SharedMqttRuntimeId, SharedMqttEventLoop>,
 ) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
     match mqtt_config {
-        MqttRuntimeConfig::SharedLock {
+        MqttRuntimeConfig::Shared {
             runtime_id,
             allowed_pub_topics,
             allowed_sub_topics,
         } => {
-            create_shared_lock_runtime(
-                module_instance_id,
-                runtime_id.clone(),
-                allowed_sub_topics,
-                allowed_pub_topics,
-                shared_mqtt_event_loops,
-            )
-            .await
-        }
-        MqttRuntimeConfig::SharedMessageBus {
-            runtime_id,
-            allowed_pub_topics,
-            allowed_sub_topics,
-        } => {
-            create_shared_message_bus_runtime(
-                module_instance_id,
-                runtime_id.clone(),
-                allowed_sub_topics,
-                allowed_pub_topics,
-                shared_mqtt_event_loops,
-            )
-            .await
+            let flavor = shared_mqtt_event_loops
+                .iter()
+                .find(|(id, _)| *id == runtime_id);
+            match flavor {
+                Some((_, shared_mqtt_runtime)) => match shared_mqtt_runtime.flavor() {
+                    MqttFlavor::Instanced => bail!("Configured flavor must be shared variant"),
+                    MqttFlavor::SharedLock => {
+                        create_shared_lock_runtime(
+                            module_instance_id,
+                            runtime_id.clone(),
+                            allowed_sub_topics,
+                            allowed_pub_topics,
+                            shared_mqtt_runtime,
+                        )
+                        .await
+                    }
+                    MqttFlavor::SharedMessageBus => {
+                        create_shared_message_bus_runtime(
+                            module_instance_id,
+                            runtime_id.clone(),
+                            allowed_sub_topics,
+                            allowed_pub_topics,
+                            shared_mqtt_runtime,
+                        )
+                        .await
+                    }
+                },
+                None => bail!(
+                    "Module requests runtime with id {} which is not defined",
+                    runtime_id
+                ),
+            }
         }
         MqttRuntimeConfig::Instanced {
             config: mqtt_config,
