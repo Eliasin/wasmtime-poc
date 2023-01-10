@@ -552,17 +552,6 @@ impl InitializedAsyncAppContext {
                     runtime_event_sender,
                     task_handle,
                 }) => {
-                    if let Err(e) = runtime_event_sender
-                        .send(RuntimeEvent::RuntimeTaskStop)
-                        .await
-                    {
-                        log::error!("Error sending runtime task stop while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
-                    }
-
-                    if let Err(e) = task_handle.await {
-                        log::error!("Error waiting on mqtt task handle while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
-                    }
-
                     if let Err(e) = mqtt_client.disconnect().await {
                         log::error!(
                             "Error disconnecting mqtt event loop while cleaning up shared mqtt event loop with id {}: {}",
@@ -573,6 +562,16 @@ impl InitializedAsyncAppContext {
                         log::debug!(
                             "Successfully disconnected event loop for runtime: {runtime_id}"
                         );
+                    }
+                    if let Err(e) = runtime_event_sender
+                        .send(RuntimeEvent::RuntimeTaskStop)
+                        .await
+                    {
+                        log::error!("Error sending runtime task stop while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
+                    }
+
+                    if let Err(e) = task_handle.await {
+                        log::error!("Error waiting on mqtt task handle while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
                     }
                 }
                 SharedMqttEventLoop::SharedMessageBus(SharedMessageBusEventLoop {
@@ -747,7 +746,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
                         }
                     },
                     Err(e) => {
-                        log::error!("Error in shared mqtt runtime {runtime_id}: {e}");
+                        log::warn!("Error in shared mqtt runtime {runtime_id}, runtime may be in middle of cleanup?: {e}");
                     }
                 }
             },
@@ -815,7 +814,7 @@ async fn async_shared_lock_mqtt_event_loop_task(
                         }
                     },
                     Err(e) => {
-                        log::error!("Error in shared mqtt runtime {runtime_id}: {e}");
+                        log::warn!("Error in shared mqtt runtime {runtime_id}, runtime may be in middle of cleanup?: {e}");
                     }
                 }
             },
