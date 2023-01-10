@@ -10,13 +10,14 @@ use tokio::sync::mpsc;
 use crate::{
     api::fio_async_api::AsyncFileIOState,
     api::mqtt_async_api::{
-        AsyncMqttConnection, InstancedAsyncMqttConnection, MessageBusSharedAsyncMqttConnection,
+        AsyncMqttConnection, InstancedAsyncMqttConnection, LockSharedAsyncMqttConnection,
+        MessageBusSharedAsyncMqttConnection,
     },
 };
 
 use super::{
-    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, MessageBusSharedMqttModuleEvent,
-    ModuleInstanceId, RuntimeEvent, SharedMqttEventLoop,
+    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, LockSharedMqttModuleEvent,
+    MessageBusSharedMqttModuleEvent, ModuleInstanceId, RuntimeEvent, SharedMqttEventLoop,
 };
 
 #[derive(Deserialize, Clone)]
@@ -248,6 +249,65 @@ fn create_instanced_async_mqtt_event_loop_task(
     }
 }
 
+async fn create_shared_lock_runtime(
+    module_instance_id: ModuleInstanceId,
+    runtime_id: String,
+    allowed_sub_topics: &[String],
+    allowed_pub_topics: &[String],
+    shared_mqtt_event_loops: &mut HashMap<SharedMqttRuntimeId, SharedMqttEventLoop>,
+) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
+    let event_loop = shared_mqtt_event_loops
+        .iter_mut()
+        .find(|(event_loop_runtime_id, _)| **event_loop_runtime_id == runtime_id);
+
+    match event_loop {
+        Some((_, event_loop)) => match event_loop {
+            SharedMqttEventLoop::SharedLock {
+                mqtt_client,
+                module_event_sender,
+                runtime_event_sender: _,
+                task_handle: _,
+            } => {
+                let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
+
+                if let Err(e) = module_event_sender
+                    .send(LockSharedMqttModuleEvent::NewModule {
+                        id: module_instance_id,
+                        module_mqtt_event_sender: mqtt_event_sender,
+                    })
+                    .await
+                {
+                    bail!("Failed to send new module event to shared message bus shared mqtt runtime: {}", e)
+                }
+
+                let mqtt_connection =
+                    AsyncMqttConnection::LockShared(LockSharedAsyncMqttConnection::new(
+                        mqtt_client.clone(),
+                        mqtt_event_receiver,
+                        allowed_sub_topics.to_vec(),
+                        allowed_pub_topics.to_vec(),
+                        runtime_id,
+                    ));
+
+                Ok((mqtt_connection, AsyncMqttEventLoopTask::LockShared))
+            }
+            SharedMqttEventLoop::SharedMessageBus {
+                mqtt_client_action_sender: _,
+                module_event_sender: _,
+                runtime_event_sender: _,
+                task_handle: _,
+            } => {
+                bail!(
+                    "Inconsistency detected in shared mqtt
+                            runtimes, runtime event loop for message bus 
+                            flavor matches shared lock module runtime_id"
+                );
+            }
+        },
+        None => bail!("No shared mqtt runtime found with id {}", runtime_id),
+    }
+}
+
 async fn create_shared_message_bus_runtime(
     module_instance_id: ModuleInstanceId,
     runtime_id: String,
@@ -315,10 +375,19 @@ pub async fn create_async_mqtt_runtime(
 ) -> anyhow::Result<(AsyncMqttConnection, AsyncMqttEventLoopTask)> {
     match mqtt_config {
         MqttRuntimeConfig::SharedLock {
-            runtime_id: _,
-            allowed_pub_topics: _,
-            allowed_sub_topics: _,
-        } => todo!(),
+            runtime_id,
+            allowed_pub_topics,
+            allowed_sub_topics,
+        } => {
+            create_shared_lock_runtime(
+                module_instance_id,
+                runtime_id.clone(),
+                allowed_sub_topics,
+                allowed_pub_topics,
+                shared_mqtt_event_loops,
+            )
+            .await
+        }
         MqttRuntimeConfig::SharedMessageBus {
             runtime_id,
             allowed_pub_topics,

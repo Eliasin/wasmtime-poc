@@ -35,7 +35,7 @@ pub enum MessageBusSharedMqttModuleEvent {
 pub enum LockSharedMqttModuleEvent {
     NewModule {
         id: ModuleInstanceId,
-        module_mqtt_event_receiver: tokio::sync::mpsc::Sender<rumqttc::Event>,
+        module_mqtt_event_sender: tokio::sync::mpsc::Sender<rumqttc::Event>,
     },
     ModuleFinished {
         id: ModuleInstanceId,

@@ -1,23 +1,43 @@
-use std::sync::Arc;
-
 use super::{map_qos, mqtt};
+use crate::runtime::SharedMqttRuntimeId;
 use anyhow::anyhow;
 use rumqttc::Incoming;
-use tokio::sync::{mpsc, Mutex};
+use std::sync::Arc;
+use tokio::sync::mpsc;
 
 pub struct LockSharedAsyncMqttConnection {
-    mqtt_client: Arc<Mutex<rumqttc::AsyncClient>>,
+    mqtt_client: Arc<rumqttc::AsyncClient>,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     subbed_topics: Vec<(String, mqtt::QualityOfService)>,
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
+    runtime_id: SharedMqttRuntimeId,
 }
 
 impl LockSharedAsyncMqttConnection {
-    pub async fn disconnect(&self) -> anyhow::Result<()> {
-        let mqtt_client = self.mqtt_client.lock().await;
+    pub fn new(
+        mqtt_client: Arc<rumqttc::AsyncClient>,
+        mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
+        allowed_sub_topics: Vec<String>,
+        allowed_pub_topics: Vec<String>,
+        runtime_id: SharedMqttRuntimeId,
+    ) -> LockSharedAsyncMqttConnection {
+        LockSharedAsyncMqttConnection {
+            mqtt_client,
+            mqtt_event_receiver,
+            subbed_topics: vec![],
+            allowed_sub_topics,
+            allowed_pub_topics,
+            runtime_id,
+        }
+    }
 
-        Ok(mqtt_client.disconnect().await?)
+    pub async fn disconnect(&self) -> anyhow::Result<()> {
+        Ok(self.mqtt_client.disconnect().await?)
+    }
+
+    pub fn runtime_id(&self) -> &SharedMqttRuntimeId {
+        &self.runtime_id
     }
 }
 
@@ -31,8 +51,8 @@ impl mqtt::Mqtt for LockSharedAsyncMqttConnection {
         payload: Vec<u8>,
     ) -> anyhow::Result<Result<(), String>> {
         if self.allowed_pub_topics.contains(&topic.to_string()) {
-            let mqtt_client = self.mqtt_client.lock().await;
-            Ok(mqtt_client
+            Ok(self
+                .mqtt_client
                 .publish(topic, map_qos(qos), retain, payload)
                 .await
                 .map_err(|e| format!("MQTT Error: {e}")))
@@ -56,8 +76,8 @@ impl mqtt::Mqtt for LockSharedAsyncMqttConnection {
                 .find(|(subbed_topic, _)| *subbed_topic == topic)
             {
                 if map_qos(qos) != map_qos(*subbed_qos) {
-                    let mqtt_client = self.mqtt_client.lock().await;
-                    let result = mqtt_client
+                    let result = self
+                        .mqtt_client
                         .subscribe(&topic, map_qos(qos))
                         .await
                         .map_err(|e| format!("MQTT Error: {e}"));
@@ -70,8 +90,8 @@ impl mqtt::Mqtt for LockSharedAsyncMqttConnection {
                     Ok(Ok(()))
                 }
             } else {
-                let mqtt_client = self.mqtt_client.lock().await;
-                let result = mqtt_client
+                let result = self
+                    .mqtt_client
                     .subscribe(&topic, map_qos(qos))
                     .await
                     .map_err(|e| format!("MQTT Error: {e}"));
