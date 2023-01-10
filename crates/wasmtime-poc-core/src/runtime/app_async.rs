@@ -36,14 +36,14 @@ wasmtime::component::bindgen!({
 
 pub struct SharedLockEventLoop {
     pub(crate) mqtt_client: Arc<rumqttc::AsyncClient>,
-    pub(crate) module_event_sender: tokio::sync::mpsc::Sender<LockSharedMqttModuleEvent>,
+    pub(crate) module_event_sender: tokio::sync::mpsc::Sender<SharedMqttModuleEvent>,
     pub(crate) runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
     pub(crate) task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
 }
 
 pub struct SharedMessageBusEventLoop {
     pub(crate) mqtt_client_action_sender: tokio::sync::mpsc::Sender<MqttClientAction>,
-    pub(crate) module_event_sender: tokio::sync::mpsc::Sender<MessageBusSharedMqttModuleEvent>,
+    pub(crate) module_event_sender: tokio::sync::mpsc::Sender<SharedMqttModuleEvent>,
     pub(crate) runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
     pub(crate) task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
 }
@@ -141,7 +141,7 @@ impl InitializedAsyncAppContext {
         } = shared_mqtt_event_loop;
 
         if let Err(e) = module_event_sender
-            .send(LockSharedMqttModuleEvent::ModuleFinished {
+            .send(SharedMqttModuleEvent::ModuleFinished {
                 id: module_instance_id,
             })
             .await
@@ -172,7 +172,7 @@ impl InitializedAsyncAppContext {
         } = shared_mqtt_event_loop;
 
         if let Err(e) = module_event_sender
-            .send(MessageBusSharedMqttModuleEvent::ModuleFinished {
+            .send(SharedMqttModuleEvent::ModuleFinished {
                 id: module_instance_id,
             })
             .await
@@ -674,8 +674,36 @@ async fn handle_mqtt_client_action(
     Ok(())
 }
 
+fn handle_module_event(
+    module_event_senders: &mut HashMap<ModuleInstanceId, tokio::sync::mpsc::Sender<rumqttc::Event>>,
+    module_event: SharedMqttModuleEvent,
+    runtime_id: &SharedMqttRuntimeId,
+) {
+    match module_event {
+        SharedMqttModuleEvent::NewModule {
+            id,
+            module_mqtt_event_sender,
+        } => {
+            log::debug!(
+                "New module instance id {} added to shared mqtt runtime {}",
+                id,
+                runtime_id
+            );
+            module_event_senders.insert(id, module_mqtt_event_sender);
+        }
+        SharedMqttModuleEvent::ModuleFinished { id } => {
+            log::debug!(
+                "Module instance id {} finished and is being removed from runtime {}",
+                id,
+                runtime_id
+            );
+            module_event_senders.remove(&id);
+        }
+    }
+}
+
 async fn async_shared_message_bus_mqtt_event_loop_task(
-    mut module_event_receiver: tokio::sync::mpsc::Receiver<MessageBusSharedMqttModuleEvent>,
+    mut module_event_receiver: tokio::sync::mpsc::Receiver<SharedMqttModuleEvent>,
     mut runtime_event_receiver: tokio::sync::mpsc::Receiver<RuntimeEvent>,
     mut mqtt_client_action_receiver: tokio::sync::mpsc::Receiver<MqttClientAction>,
     mut mqtt_client: rumqttc::AsyncClient,
@@ -703,18 +731,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
             },
             module_event = module_event_receiver.recv() => {
                 match module_event {
-                    Some(module_event) => {
-                        match module_event {
-                            MessageBusSharedMqttModuleEvent::NewModule { id, module_mqtt_event_sender } => {
-                                log::debug!("New module instance id {} added to shared mqtt runtime {}", id, runtime_id);
-                                module_event_senders.insert(id, module_mqtt_event_sender);
-                            },
-                            MessageBusSharedMqttModuleEvent::ModuleFinished { id } => {
-                                log::debug!("Module instance id {} finished and is being removed from runtime {}", id, runtime_id);
-                                module_event_senders.remove(&id);
-                            },
-                        }
-                    },
+                    Some(module_event) => handle_module_event(&mut module_event_senders, module_event, &runtime_id),
                     None => {
                         bail!("Runtime module event channel unexpectedly closed")
                     },
@@ -757,7 +774,7 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
 }
 
 async fn async_shared_lock_mqtt_event_loop_task(
-    mut module_event_receiver: tokio::sync::mpsc::Receiver<LockSharedMqttModuleEvent>,
+    mut module_event_receiver: tokio::sync::mpsc::Receiver<SharedMqttModuleEvent>,
     mut runtime_event_receiver: tokio::sync::mpsc::Receiver<RuntimeEvent>,
     mut mqtt_event_loop: rumqttc::EventLoop,
     runtime_id: SharedMqttRuntimeId,
@@ -773,11 +790,11 @@ async fn async_shared_lock_mqtt_event_loop_task(
                 match module_event {
                     Some(module_event) => {
                         match module_event {
-                            LockSharedMqttModuleEvent::NewModule { id, module_mqtt_event_sender } => {
+                            SharedMqttModuleEvent::NewModule { id, module_mqtt_event_sender } => {
                                 log::debug!("New module instance id {} added to shared mqtt runtime {}", id, runtime_id);
                                 module_event_senders.insert(id, module_mqtt_event_sender);
                             },
-                            LockSharedMqttModuleEvent::ModuleFinished { id } => {
+                            SharedMqttModuleEvent::ModuleFinished { id } => {
                                 log::debug!("Module instance id {} finished and is being removed from runtime {}", id, runtime_id);
                                 module_event_senders.remove(&id);
                             },

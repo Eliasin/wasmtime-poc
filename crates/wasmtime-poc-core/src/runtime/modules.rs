@@ -16,9 +16,8 @@ use crate::{
 };
 
 use super::{
-    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, LockSharedMqttModuleEvent,
-    MessageBusSharedMqttModuleEvent, ModuleInstanceId, RuntimeEvent, SharedLockEventLoop,
-    SharedMessageBusEventLoop, SharedMqttEventLoop,
+    AsyncMqttEventLoopTask, InstancedAsyncMqttEventLoopTask, ModuleInstanceId, RuntimeEvent,
+    SharedLockEventLoop, SharedMessageBusEventLoop, SharedMqttEventLoop, SharedMqttModuleEvent,
 };
 
 #[derive(Deserialize, Clone)]
@@ -259,7 +258,7 @@ async fn create_shared_lock_runtime(
             let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
 
             if let Err(e) = module_event_sender
-                .send(LockSharedMqttModuleEvent::NewModule {
+                .send(SharedMqttModuleEvent::NewModule {
                     id: module_instance_id,
                     module_mqtt_event_sender: mqtt_event_sender,
                 })
@@ -326,7 +325,7 @@ async fn create_shared_message_bus_runtime(
             let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
 
             if let Err(e) = module_event_sender
-                .send(MessageBusSharedMqttModuleEvent::NewModule {
+                .send(SharedMqttModuleEvent::NewModule {
                     id: module_instance_id,
                     module_mqtt_event_sender: mqtt_event_sender,
                 })

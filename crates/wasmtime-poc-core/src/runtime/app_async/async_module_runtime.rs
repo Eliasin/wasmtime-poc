@@ -22,17 +22,7 @@ pub struct AsyncModuleRuntime {
 
 pub type ModuleInstanceId = u64;
 
-pub enum MessageBusSharedMqttModuleEvent {
-    NewModule {
-        id: ModuleInstanceId,
-        module_mqtt_event_sender: tokio::sync::mpsc::Sender<rumqttc::Event>,
-    },
-    ModuleFinished {
-        id: ModuleInstanceId,
-    },
-}
-
-pub enum LockSharedMqttModuleEvent {
+pub enum SharedMqttModuleEvent {
     NewModule {
         id: ModuleInstanceId,
         module_mqtt_event_sender: tokio::sync::mpsc::Sender<rumqttc::Event>,
