@@ -35,7 +35,7 @@ wasmtime::component::bindgen!({
 });
 
 pub struct SharedLockEventLoop {
-    pub(crate) mqtt_client: Arc<rumqttc::AsyncClient>,
+    pub(crate) mqtt_client: rumqttc::AsyncClient,
     pub(crate) module_event_sender: tokio::sync::mpsc::Sender<SharedMqttModuleEvent>,
     pub(crate) runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
     pub(crate) task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
@@ -345,7 +345,7 @@ impl InitializedAsyncAppContext {
         Ok((
             runtime_id,
             SharedMqttEventLoop::SharedLock(SharedLockEventLoop {
-                mqtt_client: Arc::new(client),
+                mqtt_client: client,
                 module_event_sender,
                 runtime_event_sender,
                 task_handle: mqtt_event_loop_task_handle,

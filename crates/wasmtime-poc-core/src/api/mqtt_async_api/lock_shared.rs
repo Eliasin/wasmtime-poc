@@ -2,11 +2,10 @@ use super::{map_qos, mqtt};
 use crate::runtime::SharedMqttRuntimeId;
 use anyhow::anyhow;
 use rumqttc::Incoming;
-use std::sync::Arc;
 use tokio::sync::mpsc;
 
 pub struct LockSharedAsyncMqttConnection {
-    mqtt_client: Arc<rumqttc::AsyncClient>,
+    mqtt_client: rumqttc::AsyncClient,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     subbed_topics: Vec<(String, mqtt::QualityOfService)>,
     allowed_sub_topics: Vec<String>,
@@ -16,7 +15,7 @@ pub struct LockSharedAsyncMqttConnection {
 
 impl LockSharedAsyncMqttConnection {
     pub fn new(
-        mqtt_client: Arc<rumqttc::AsyncClient>,
+        mqtt_client: rumqttc::AsyncClient,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
