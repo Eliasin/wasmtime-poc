@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{bail, Context};
+use async_trait::async_trait;
 use enum_dispatch::enum_dispatch;
 use tokio::sync::mpsc;
 
@@ -38,11 +39,9 @@ pub enum SharedMqttRuntimeEnum {
     SharedMessageBusRuntime,
 }
 
+#[async_trait]
 #[enum_dispatch(SharedMqttRuntimeEnum)]
-pub trait SharedMqttRuntime
-where
-    Self: Sized,
-{
+pub trait SharedMqttRuntime {
     async fn cleanup(self, runtime_id: &SharedMqttRuntimeId);
     async fn create_module_runtime(
         &self,

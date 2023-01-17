@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::bail;
+use async_trait::async_trait;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
@@ -83,6 +84,7 @@ impl SharedLockRuntime {
     }
 }
 
+#[async_trait]
 impl SharedMqttRuntime for SharedLockRuntime {
     async fn cleanup(self, runtime_id: &SharedMqttRuntimeId) {
         if let Err(e) = self.mqtt_client.disconnect().await {

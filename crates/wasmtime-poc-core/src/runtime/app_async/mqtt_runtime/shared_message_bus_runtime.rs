@@ -1,6 +1,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::bail;
+use async_trait::async_trait;
 
 use crate::{
     api::mqtt_async_api::{MessageBusSharedConnection, MqttClientAction, MqttConnection},
@@ -86,6 +87,7 @@ impl SharedMessageBusRuntime {
     }
 }
 
+#[async_trait]
 impl SharedMqttRuntime for SharedMessageBusRuntime {
     async fn create_module_runtime(
         &self,
