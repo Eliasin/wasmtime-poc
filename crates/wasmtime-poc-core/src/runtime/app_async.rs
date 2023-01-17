@@ -20,7 +20,7 @@ use crate::api::{debug_async_api, env_async_api, fio_async_api, mqtt_async_api, 
 
 use super::{
     initialize_fio_for_module, AsyncWasmModuleStore, InitializedModule, ModuleRuntimeConfig,
-    RuntimeEvent, SharedMqttRuntimeConfig, UninitializedAppContext, UninitializedModule,
+    SharedMqttRuntimeConfig, UninitializedAppContext, UninitializedModule,
 };
 
 wasmtime::component::bindgen!({

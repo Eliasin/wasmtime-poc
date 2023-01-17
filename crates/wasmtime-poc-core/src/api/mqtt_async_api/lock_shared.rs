@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use rumqttc::Incoming;
 use tokio::sync::mpsc;
 
-pub struct LockSharedAsyncMqttConnection {
+pub struct LockSharedConnection {
     mqtt_client: rumqttc::AsyncClient,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     subbed_topics: Vec<(String, mqtt::QualityOfService)>,
@@ -13,15 +13,15 @@ pub struct LockSharedAsyncMqttConnection {
     runtime_id: SharedMqttRuntimeId,
 }
 
-impl LockSharedAsyncMqttConnection {
+impl LockSharedConnection {
     pub fn new(
         mqtt_client: rumqttc::AsyncClient,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
         runtime_id: SharedMqttRuntimeId,
-    ) -> LockSharedAsyncMqttConnection {
-        LockSharedAsyncMqttConnection {
+    ) -> LockSharedConnection {
+        LockSharedConnection {
             mqtt_client,
             mqtt_event_receiver,
             subbed_topics: vec![],
@@ -37,7 +37,7 @@ impl LockSharedAsyncMqttConnection {
 }
 
 #[async_trait::async_trait]
-impl mqtt::Mqtt for LockSharedAsyncMqttConnection {
+impl mqtt::Mqtt for LockSharedConnection {
     async fn publish(
         &mut self,
         topic: String,

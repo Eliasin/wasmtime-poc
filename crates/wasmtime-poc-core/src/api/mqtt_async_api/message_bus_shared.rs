@@ -20,7 +20,7 @@ pub enum MqttClientAction {
     Disconnect,
 }
 
-pub struct MessageBusSharedAsyncMqttConnection {
+pub struct MessageBusSharedConnection {
     mqtt_action_sender: mpsc::Sender<MqttClientAction>,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     subbed_topics: Vec<(String, mqtt::QualityOfService)>,
@@ -29,15 +29,15 @@ pub struct MessageBusSharedAsyncMqttConnection {
     runtime_id: SharedMqttRuntimeId,
 }
 
-impl MessageBusSharedAsyncMqttConnection {
+impl MessageBusSharedConnection {
     pub fn new(
         mqtt_action_sender: mpsc::Sender<MqttClientAction>,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
         runtime_id: SharedMqttRuntimeId,
-    ) -> MessageBusSharedAsyncMqttConnection {
-        MessageBusSharedAsyncMqttConnection {
+    ) -> MessageBusSharedConnection {
+        MessageBusSharedConnection {
             mqtt_action_sender,
             mqtt_event_receiver,
             subbed_topics: vec![],
@@ -53,7 +53,7 @@ impl MessageBusSharedAsyncMqttConnection {
 }
 
 #[async_trait::async_trait]
-impl mqtt::Mqtt for MessageBusSharedAsyncMqttConnection {
+impl mqtt::Mqtt for MessageBusSharedConnection {
     async fn publish(
         &mut self,
         topic: String,

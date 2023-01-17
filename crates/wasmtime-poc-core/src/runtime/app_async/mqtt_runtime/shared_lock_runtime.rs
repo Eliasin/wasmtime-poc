@@ -1,9 +1,11 @@
 use std::{collections::HashMap, time::Duration};
 
 use anyhow::bail;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 use crate::{
-    api::mqtt_async_api::{AsyncMqttConnection, LockSharedAsyncMqttConnection},
+    api::mqtt_async_api::{LockSharedConnection, MqttConnection},
     runtime::{handle_module_event, ModuleInstanceId, RuntimeEvent, SharedMqttRuntimeId},
 };
 
@@ -11,9 +13,9 @@ use super::{SharedMqttModuleEvent, SharedMqttRuntime, SharedMqttRuntimeEnum};
 
 pub struct SharedLockRuntime {
     mqtt_client: rumqttc::AsyncClient,
-    module_event_sender: tokio::sync::mpsc::Sender<SharedMqttModuleEvent>,
-    runtime_event_sender: tokio::sync::mpsc::Sender<RuntimeEvent>,
-    task_handle: tokio::task::JoinHandle<anyhow::Result<()>>,
+    module_event_sender: mpsc::Sender<SharedMqttModuleEvent>,
+    runtime_event_sender: mpsc::Sender<RuntimeEvent>,
+    task_handle: JoinHandle<anyhow::Result<()>>,
 }
 
 impl SharedLockRuntime {
@@ -28,8 +30,8 @@ impl SharedLockRuntime {
 
         let (client, event_loop) = rumqttc::AsyncClient::new(mqtt_options, 10);
 
-        let (module_event_sender, module_event_receiver) = tokio::sync::mpsc::channel(32);
-        let (runtime_event_sender, runtime_event_receiver) = tokio::sync::mpsc::channel(32);
+        let (module_event_sender, module_event_receiver) = mpsc::channel(32);
+        let (runtime_event_sender, runtime_event_receiver) = mpsc::channel(32);
 
         let runtime_id_cloned = runtime_id.clone();
         let mqtt_event_loop_task_handle = tokio::spawn(async move {
@@ -58,7 +60,7 @@ impl SharedLockRuntime {
     pub async fn cleanup_module(
         &self,
         module_instance_id: ModuleInstanceId,
-        connection: LockSharedAsyncMqttConnection,
+        connection: LockSharedConnection,
     ) -> anyhow::Result<()> {
         if let Err(e) = self
             .module_event_sender
@@ -111,8 +113,8 @@ impl SharedMqttRuntime for SharedLockRuntime {
         runtime_id: String,
         allowed_sub_topics: &[String],
         allowed_pub_topics: &[String],
-    ) -> anyhow::Result<AsyncMqttConnection> {
-        let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
+    ) -> anyhow::Result<MqttConnection> {
+        let (mqtt_event_sender, mqtt_event_receiver) = mpsc::channel(32);
 
         if let Err(e) = self
             .module_event_sender
@@ -128,28 +130,24 @@ impl SharedMqttRuntime for SharedLockRuntime {
             )
         }
 
-        Ok(AsyncMqttConnection::LockShared(
-            LockSharedAsyncMqttConnection::new(
-                self.mqtt_client.clone(),
-                mqtt_event_receiver,
-                allowed_sub_topics.to_vec(),
-                allowed_pub_topics.to_vec(),
-                runtime_id,
-            ),
-        ))
+        Ok(MqttConnection::LockShared(LockSharedConnection::new(
+            self.mqtt_client.clone(),
+            mqtt_event_receiver,
+            allowed_sub_topics.to_vec(),
+            allowed_pub_topics.to_vec(),
+            runtime_id,
+        )))
     }
 }
 
 async fn async_shared_lock_mqtt_event_loop_task(
-    mut module_event_receiver: tokio::sync::mpsc::Receiver<SharedMqttModuleEvent>,
-    mut runtime_event_receiver: tokio::sync::mpsc::Receiver<RuntimeEvent>,
+    mut module_event_receiver: mpsc::Receiver<SharedMqttModuleEvent>,
+    mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
     mut mqtt_event_loop: rumqttc::EventLoop,
     runtime_id: SharedMqttRuntimeId,
 ) -> anyhow::Result<()> {
-    let mut module_event_senders: HashMap<
-        ModuleInstanceId,
-        tokio::sync::mpsc::Sender<rumqttc::Event>,
-    > = HashMap::new();
+    let mut module_event_senders: HashMap<ModuleInstanceId, mpsc::Sender<rumqttc::Event>> =
+        HashMap::new();
 
     loop {
         tokio::select! {

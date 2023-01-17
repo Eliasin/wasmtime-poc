@@ -12,7 +12,7 @@ wasmtime::component::bindgen!({
 
 pub use fio::add_to_linker;
 
-pub struct AsyncFileIOState {
+pub struct FileIOState {
     allowed_write_files: Vec<PathBuf>,
     allowed_write_directories: Vec<PathBuf>,
     allowed_read_files: Vec<PathBuf>,
@@ -20,14 +20,14 @@ pub struct AsyncFileIOState {
     open_file_handles: HashMap<PathBuf, File>,
 }
 
-impl AsyncFileIOState {
+impl FileIOState {
     pub fn new(
         allowed_write_files: Vec<PathBuf>,
         allowed_write_folders: Vec<PathBuf>,
         allowed_read_files: Vec<PathBuf>,
         allowed_read_folders: Vec<PathBuf>,
-    ) -> AsyncFileIOState {
-        AsyncFileIOState {
+    ) -> FileIOState {
+        FileIOState {
             allowed_write_files,
             allowed_write_directories: allowed_write_folders,
             allowed_read_files,
@@ -51,7 +51,7 @@ fn is_file_operation_allowed(
 }
 
 #[async_trait::async_trait]
-impl fio::Fio for AsyncFileIOState {
+impl fio::Fio for FileIOState {
     async fn read_bytes(
         &mut self,
         file_path: String,

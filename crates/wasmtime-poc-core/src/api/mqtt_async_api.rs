@@ -27,26 +27,24 @@ fn map_qos(qos: mqtt::QualityOfService) -> rumqttc::QoS {
     }
 }
 
-pub enum AsyncMqttConnection {
-    MessageBusShared(MessageBusSharedAsyncMqttConnection),
-    LockShared(LockSharedAsyncMqttConnection),
-    Instanced(InstancedAsyncMqttConnection),
+pub enum MqttConnection {
+    MessageBusShared(MessageBusSharedConnection),
+    LockShared(LockSharedConnection),
+    Instanced(InstancedConnection),
 }
 
-impl AsyncMqttConnection {
+impl MqttConnection {
     pub fn runtime_id(&self) -> Option<SharedMqttRuntimeId> {
         match self {
-            AsyncMqttConnection::MessageBusShared(connection) => {
-                Some(connection.runtime_id().clone())
-            }
-            AsyncMqttConnection::LockShared(connection) => Some(connection.runtime_id().clone()),
-            AsyncMqttConnection::Instanced(_) => None,
+            MqttConnection::MessageBusShared(connection) => Some(connection.runtime_id().clone()),
+            MqttConnection::LockShared(connection) => Some(connection.runtime_id().clone()),
+            MqttConnection::Instanced(_) => None,
         }
     }
 }
 
 #[async_trait::async_trait]
-impl mqtt::Mqtt for AsyncMqttConnection {
+impl mqtt::Mqtt for MqttConnection {
     async fn publish(
         &mut self,
         topic: String,
@@ -54,7 +52,7 @@ impl mqtt::Mqtt for AsyncMqttConnection {
         retain: bool,
         payload: Vec<u8>,
     ) -> anyhow::Result<Result<(), String>> {
-        use AsyncMqttConnection::*;
+        use MqttConnection::*;
         match self {
             MessageBusShared(v) => v.publish(topic, qos, retain, payload).await,
             LockShared(v) => v.publish(topic, qos, retain, payload).await,
@@ -67,7 +65,7 @@ impl mqtt::Mqtt for AsyncMqttConnection {
         topic: String,
         qos: mqtt::QualityOfService,
     ) -> anyhow::Result<Result<(), String>> {
-        use AsyncMqttConnection::*;
+        use MqttConnection::*;
         match self {
             MessageBusShared(v) => v.subscribe(topic, qos).await,
             LockShared(v) => v.subscribe(topic, qos).await,
@@ -76,7 +74,7 @@ impl mqtt::Mqtt for AsyncMqttConnection {
     }
 
     async fn poll(&mut self) -> anyhow::Result<Result<mqtt::Event, String>> {
-        use AsyncMqttConnection::*;
+        use MqttConnection::*;
         match self {
             MessageBusShared(v) => v.poll().await,
             LockShared(v) => v.poll().await,

@@ -3,21 +3,21 @@ use anyhow::anyhow;
 use rumqttc::Incoming;
 use tokio::sync::mpsc;
 
-pub struct InstancedAsyncMqttConnection {
+pub struct InstancedConnection {
     mqtt_client: rumqttc::AsyncClient,
     mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
     allowed_sub_topics: Vec<String>,
     allowed_pub_topics: Vec<String>,
 }
 
-impl InstancedAsyncMqttConnection {
+impl InstancedConnection {
     pub fn new(
         mqtt_client: rumqttc::AsyncClient,
         mqtt_event_receiver: mpsc::Receiver<rumqttc::Event>,
         allowed_sub_topics: Vec<String>,
         allowed_pub_topics: Vec<String>,
-    ) -> InstancedAsyncMqttConnection {
-        InstancedAsyncMqttConnection {
+    ) -> InstancedConnection {
+        InstancedConnection {
             mqtt_client,
             mqtt_event_receiver,
             allowed_sub_topics,
@@ -26,14 +26,14 @@ impl InstancedAsyncMqttConnection {
     }
 }
 
-impl InstancedAsyncMqttConnection {
+impl InstancedConnection {
     pub async fn disconnect(&self) -> anyhow::Result<()> {
         Ok(self.mqtt_client.disconnect().await?)
     }
 }
 
 #[async_trait::async_trait]
-impl mqtt::Mqtt for InstancedAsyncMqttConnection {
+impl mqtt::Mqtt for InstancedConnection {
     async fn publish(
         &mut self,
         topic: String,

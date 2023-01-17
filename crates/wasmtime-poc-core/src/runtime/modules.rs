@@ -8,8 +8,8 @@ use std::{
 use tokio::sync::mpsc;
 
 use crate::{
-    api::fio_async_api::AsyncFileIOState,
-    api::mqtt_async_api::{AsyncMqttConnection, InstancedAsyncMqttConnection},
+    api::fio_async_api::FileIOState,
+    api::mqtt_async_api::{InstancedConnection, MqttConnection},
 };
 
 #[derive(Deserialize, Clone)]
@@ -110,16 +110,16 @@ impl AppConfig {
     }
 }
 
-pub struct AsyncMqttRuntime {
-    pub mqtt: AsyncMqttConnection,
+pub struct MqttRuntime {
+    pub mqtt: MqttConnection,
     pub event_channel_sender: mpsc::Sender<rumqttc::Event>,
     pub event_loop: rumqttc::EventLoop,
 }
 
-impl AsyncMqttRuntime {
+impl MqttRuntime {
     pub fn create_instanced_mqtt_runtime(
         mqtt_config: &InstancedMqttRuntimeConfig,
-    ) -> anyhow::Result<AsyncMqttRuntime> {
+    ) -> anyhow::Result<MqttRuntime> {
         let mut mqtt_options = rumqttc::MqttOptions::new(
             mqtt_config.id.clone(),
             mqtt_config.host.clone(),
@@ -134,8 +134,8 @@ impl AsyncMqttRuntime {
 
         let (mqtt_event_sender, mqtt_event_receiver) = mpsc::channel(event_channel_bound);
 
-        Ok(AsyncMqttRuntime {
-            mqtt: AsyncMqttConnection::Instanced(InstancedAsyncMqttConnection::new(
+        Ok(MqttRuntime {
+            mqtt: MqttConnection::Instanced(InstancedConnection::new(
                 client,
                 mqtt_event_receiver,
                 mqtt_config.allowed_sub_topics.clone(),
@@ -148,18 +148,18 @@ impl AsyncMqttRuntime {
 }
 
 pub struct AsyncFileIORuntime {
-    pub fio: AsyncFileIOState,
+    pub fio: FileIOState,
 }
 
 pub struct AsyncWasmModuleStore {
-    pub mqtt_connection: Option<AsyncMqttConnection>,
-    pub fio: Option<AsyncFileIOState>,
+    pub mqtt_connection: Option<MqttConnection>,
+    pub fio: Option<FileIOState>,
     pub env: HashMap<String, String>,
 }
 
 fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<AsyncFileIORuntime> {
     Ok(AsyncFileIORuntime {
-        fio: AsyncFileIOState::new(
+        fio: FileIOState::new(
             fio_config
                 .allowed_write_files
                 .iter()

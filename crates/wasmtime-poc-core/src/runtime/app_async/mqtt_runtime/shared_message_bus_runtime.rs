@@ -3,9 +3,7 @@ use std::{collections::HashMap, time::Duration};
 use anyhow::bail;
 
 use crate::{
-    api::mqtt_async_api::{
-        AsyncMqttConnection, MessageBusSharedAsyncMqttConnection, MqttClientAction,
-    },
+    api::mqtt_async_api::{MessageBusSharedConnection, MqttClientAction, MqttConnection},
     runtime::{handle_module_event, ModuleInstanceId, RuntimeEvent, SharedMqttRuntimeId},
 };
 
@@ -65,7 +63,7 @@ impl SharedMessageBusRuntime {
     pub async fn cleanup_module(
         &self,
         module_instance_id: ModuleInstanceId,
-        connection: MessageBusSharedAsyncMqttConnection,
+        connection: MessageBusSharedConnection,
     ) -> anyhow::Result<()> {
         if let Err(e) = self
             .module_event_sender
@@ -95,7 +93,7 @@ impl SharedMqttRuntime for SharedMessageBusRuntime {
         runtime_id: String,
         allowed_sub_topics: &[String],
         allowed_pub_topics: &[String],
-    ) -> anyhow::Result<AsyncMqttConnection> {
+    ) -> anyhow::Result<MqttConnection> {
         let (mqtt_event_sender, mqtt_event_receiver) = tokio::sync::mpsc::channel(32);
 
         if let Err(e) = self
@@ -112,8 +110,8 @@ impl SharedMqttRuntime for SharedMessageBusRuntime {
             )
         }
 
-        Ok(AsyncMqttConnection::MessageBusShared(
-            MessageBusSharedAsyncMqttConnection::new(
+        Ok(MqttConnection::MessageBusShared(
+            MessageBusSharedConnection::new(
                 self.mqtt_client_action_sender.clone(),
                 mqtt_event_receiver,
                 allowed_sub_topics.to_vec(),
