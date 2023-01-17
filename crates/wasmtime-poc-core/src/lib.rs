@@ -1,5 +1,6 @@
 #![feature(hash_drain_filter)]
 #![feature(entry_insert)]
+#![feature(async_fn_in_trait)]
 
 mod api;
 mod runtime;

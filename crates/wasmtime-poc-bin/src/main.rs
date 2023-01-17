@@ -48,6 +48,6 @@ async fn main() -> anyhow::Result<()> {
     let app_config = AppConfig::from_app_config_file(args.config_path)?;
 
     let unitialized_app_context = UninitializedAppContext::new(&app_config)?;
-    let mut initialized_app_context = unitialized_app_context.async_initialize_modules()?;
+    let initialized_app_context = unitialized_app_context.async_initialize_modules()?;
     initialized_app_context.start().await
 }
