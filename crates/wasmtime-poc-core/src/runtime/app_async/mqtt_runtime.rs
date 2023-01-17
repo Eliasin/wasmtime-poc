@@ -59,7 +59,7 @@ pub struct MqttRuntimes {
 }
 
 impl MqttRuntimes {
-    fn start_shared_mqtt_event_loop(
+    fn start_shared_runtime(
         config: &SharedMqttRuntimeConfig,
     ) -> anyhow::Result<(SharedMqttRuntimeId, SharedMqttRuntimeEnum)> {
         use SharedMqttFlavor::*;
@@ -72,8 +72,8 @@ impl MqttRuntimes {
             flavor,
         } = config;
 
-        log::info!("Starting shared mqtt event loop id {}", runtime_id);
-        let event_loop = match flavor {
+        log::info!("Starting shared mqtt event runtime {}", runtime_id);
+        let runtime = match flavor {
             MessageBus => SharedMessageBusRuntime::start(
                 runtime_id.clone(),
                 client_id.clone(),
@@ -87,16 +87,19 @@ impl MqttRuntimes {
             }
         };
 
-        Ok((runtime_id.clone(), event_loop))
+        Ok((runtime_id.clone(), runtime))
     }
 
-    pub async fn start_event_loops_from_configs(&mut self, configs: &[SharedMqttRuntimeConfig]) {
-        for result in configs.iter().map(Self::start_shared_mqtt_event_loop) {
+    pub async fn start_shared_runtimes_from_configs(
+        &mut self,
+        configs: &[SharedMqttRuntimeConfig],
+    ) {
+        for result in configs.iter().map(Self::start_shared_runtime) {
             match result {
-                Ok((id, event_loop)) => {
-                    self.shared_runtimes.insert(id, event_loop);
+                Ok((id, shared_runtime)) => {
+                    self.shared_runtimes.insert(id, shared_runtime);
                 }
-                Err(e) => log::warn!("Error while starting event loop {e}"),
+                Err(e) => log::warn!("Error while starting shared runtime: {e}"),
             }
         }
     }
@@ -154,8 +157,8 @@ impl MqttRuntimes {
     }
 
     pub async fn cleanup(self) {
-        for (runtime_id, event_loop) in self.shared_runtimes.into_iter() {
-            event_loop.cleanup(&runtime_id).await;
+        for (runtime_id, runtime) in self.shared_runtimes.into_iter() {
+            runtime.cleanup(&runtime_id).await;
         }
 
         for (module_instance_id, runtime) in self.instanced_runtimes.into_iter() {
@@ -169,10 +172,10 @@ impl MqttRuntimes {
         module_instance_id: ModuleInstanceId,
     ) -> anyhow::Result<()> {
         let Some(instanced_runtime) = self.instanced_runtimes.remove(&module_instance_id) else {
-            bail!("No instanced event loop could be found for module instance {module_instance_id}");
+            bail!("No instanced mqtt runtime could be found for module instance {module_instance_id}");
         };
         log::debug!(
-                "Module instance {} has instanced mqtt event loop that must be shut down, sending stop message",
+                "Module instance {} has instanced mqtt runtime that must be shut down, sending stop message",
                 module_instance_id
             );
 
@@ -189,7 +192,7 @@ impl MqttRuntimes {
         let shared_runtime = mqtt_connection.runtime_id().and_then(|runtime_id| {
             self.shared_runtimes
                 .iter_mut()
-                .find(|(event_loop_runtime_id, _)| **event_loop_runtime_id == runtime_id)
+                .find(|(shared_runtime_id, _)| **shared_runtime_id == runtime_id)
         });
 
         match mqtt_connection {

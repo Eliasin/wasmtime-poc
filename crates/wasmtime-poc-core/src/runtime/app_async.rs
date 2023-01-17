@@ -249,7 +249,7 @@ impl InitializedAsyncAppContext {
 
     pub async fn start(mut self) -> anyhow::Result<()> {
         self.mqtt_runtimes
-            .start_event_loops_from_configs(&self.shared_mqtt_runtime_configs)
+            .start_shared_runtimes_from_configs(&self.shared_mqtt_runtime_configs)
             .await;
 
         let startup_modules = self

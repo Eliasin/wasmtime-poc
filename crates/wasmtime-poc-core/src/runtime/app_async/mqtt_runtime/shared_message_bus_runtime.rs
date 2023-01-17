@@ -36,8 +36,8 @@ impl SharedMessageBusRuntime {
             tokio::sync::mpsc::channel(32);
 
         let runtime_id_cloned = runtime_id.clone();
-        let mqtt_event_loop_task_handle = tokio::spawn(async move {
-            async_shared_message_bus_mqtt_event_loop_task(
+        let runtime_task_handle = tokio::spawn(async move {
+            async_shared_message_bus_runtime_task(
                 module_event_receiver,
                 runtime_event_receiver,
                 mqtt_client_action_receiver,
@@ -49,14 +49,14 @@ impl SharedMessageBusRuntime {
         });
 
         log::debug!(
-            "Done starting shared message bus mqtt event loop id {}",
+            "Done starting shared message bus mqtt runtime id {}",
             runtime_id
         );
         Ok(SharedMessageBusRuntime {
             mqtt_client_action_sender,
             module_event_sender,
             runtime_event_sender,
-            task_handle: mqtt_event_loop_task_handle,
+            task_handle: runtime_task_handle,
         }
         .into())
     }
@@ -130,7 +130,7 @@ impl SharedMqttRuntime for SharedMessageBusRuntime {
             .await
         {
             log::error!(
-                            "Error disconnecting mqtt event loop while cleaning up shared mqtt event loop with id {}: {}",
+                            "Error disconnecting mqtt event loop while cleaning up shared mqtt runtime with id {}: {}",
                             runtime_id,
                             e
                         )
@@ -143,11 +143,11 @@ impl SharedMqttRuntime for SharedMessageBusRuntime {
             .send(RuntimeEvent::RuntimeTaskStop)
             .await
         {
-            log::error!("Error sending runtime task stop while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
+            log::error!("Error sending runtime task stop while cleaning up shared mqtt runtime with id {}: {}", runtime_id, e)
         }
 
         if let Err(e) = self.task_handle.await {
-            log::error!("Error waiting on mqtt task handle while cleaning up shared mqtt event loop with id {}: {}", runtime_id, e)
+            log::error!("Error waiting on mqtt task handle while cleaning up shared mqtt runtime with id {}: {}", runtime_id, e)
         }
     }
 }
@@ -170,7 +170,7 @@ async fn handle_mqtt_client_action(
     Ok(())
 }
 
-async fn async_shared_message_bus_mqtt_event_loop_task(
+async fn async_shared_message_bus_runtime_task(
     mut module_event_receiver: tokio::sync::mpsc::Receiver<SharedMqttModuleEvent>,
     mut runtime_event_receiver: tokio::sync::mpsc::Receiver<RuntimeEvent>,
     mut mqtt_client_action_receiver: tokio::sync::mpsc::Receiver<MqttClientAction>,
@@ -234,9 +234,6 @@ async fn async_shared_message_bus_mqtt_event_loop_task(
         }
     }
 
-    log::info!(
-        "MQTT shared message bus event loop id {} stopping",
-        runtime_id
-    );
+    log::info!("MQTT shared message bus runtime id {} stopping", runtime_id);
     Ok(())
 }

@@ -9,7 +9,7 @@ pub struct InstancedMqttRuntime {
 }
 
 impl InstancedMqttRuntime {
-    async fn event_loop_task(
+    async fn runtime_task(
         event_channel_sender: mpsc::Sender<rumqttc::Event>,
         mut runtime_event_receiver: mpsc::Receiver<RuntimeEvent>,
         mut event_loop: rumqttc::EventLoop,
@@ -41,20 +41,15 @@ impl InstancedMqttRuntime {
         event_loop: rumqttc::EventLoop,
         event_channel_sender: mpsc::Sender<rumqttc::Event>,
     ) -> Self {
-        let (mqtt_event_loop_runtime_sender, mqtt_event_loop_runtime_receiver) = mpsc::channel(32);
+        let (runtime_event_sender, runtime_event_receiver) = mpsc::channel(32);
 
-        let mqtt_event_loop_task_handle = tokio::spawn(async move {
-            Self::event_loop_task(
-                event_channel_sender,
-                mqtt_event_loop_runtime_receiver,
-                event_loop,
-            )
-            .await
+        let runtime_task_handle = tokio::spawn(async move {
+            Self::runtime_task(event_channel_sender, runtime_event_receiver, event_loop).await
         });
 
         InstancedMqttRuntime {
-            runtime_event_sender: mqtt_event_loop_runtime_sender,
-            task_handle: mqtt_event_loop_task_handle,
+            runtime_event_sender,
+            task_handle: runtime_task_handle,
         }
     }
 
@@ -67,10 +62,10 @@ impl InstancedMqttRuntime {
             log::error!("Error sending runtime task stop to instanced mqtt runtime for module instance {module_instance_id}, aborting: {e}");
             self.task_handle.abort();
         } else if let Err(e) = self.task_handle.await {
-            log::error!("Error waiting on instanced event loop task for instance {module_instance_id} to finish: {e}");
+            log::error!("Error waiting on instanced mqtt runtime task for instance {module_instance_id} to finish: {e}");
         } else {
             log::debug!(
-                "Module instance {module_instance_id} instanced mqtt event loop sucessfully shut down"
+                "Module instance {module_instance_id} instanced mqtt runtime sucessfully shut down"
             );
         }
     }
