@@ -2,11 +2,6 @@ interface env {
     get-val: func(var-name: string) -> option<string>
 }
 
-interface channels {
-    emit: func(channel-name: string, event: string)
-    poll: func(channel-name: string) -> string
-}
-
 interface debug {
     trace: func(msg: string)
     debug: func(msg: string)
@@ -92,22 +87,20 @@ interface util {
 }
 
 interface spawn {
-    spawn: func(module-name: string) -> result<_, string>
-    spawn-with-arg: func(module-name: string, data: list<u8>) -> result<_, string>
+    spawn: func(module-name: string, arg: option<list<u8>>) -> result<_, string>
 }
 
 interface start {
-    start: func() -> result<_, string>
-    start-with-arg: func(data: list<u8>) -> result<_, string>
+    start: func(arg: option<list<u8>>) -> result<_, string>
 }
 
 world apis {
     import env: env
     import debug: debug
     import mqtt: mqtt
-    import channels: channels
     import fio: fio
     import util: util
+    import spawn: spawn
 
     default export start
 }

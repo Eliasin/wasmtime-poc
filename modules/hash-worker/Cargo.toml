@@ -1,5 +1,5 @@
 [package]
-name = "mqtt-module"
+name = "hash-worker"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 wit-bindgen-guest-rust = { git = "https://github.com/bytecodealliance/wit-bindgen.git", rev = "d24b97fcb1378cd8f61efbfd956ca8dcb57d2db0" }
+serde_json = "1.0.89"
+serde = { version = "1.0.148", features = ["derive"] }
+md-5 = "0.10.5"
+postcard = "1.0.2"

@@ -54,7 +54,7 @@ fn build_modules() -> anyhow::Result<()> {
         wait_for_path_creation(module_build_dir_path)?;
     }
 
-    let mut module_build_threads = vec![];
+    let mut module_outputs = vec![];
 
     println!("cargo:warning=********** Starting Module Build Process **********");
     for module_dir in fs::read_dir(
@@ -115,21 +115,21 @@ fn build_modules() -> anyhow::Result<()> {
                 continue;
             }
         };
-        module_build_threads.push((module_dir.path(), command_thread_handle));
+
+        module_outputs.push((
+            module_dir.path(),
+            command_thread_handle.wait_with_output().with_context(|| {
+                format!(
+                    "Failed waiting for cargo build command at {}",
+                    module_dir.path().display(),
+                )
+            })?,
+        ));
     }
 
     let mut modules: Vec<(PathBuf, String)> = vec![];
 
-    for (module_path, module_build_thread_handle) in module_build_threads.into_iter() {
-        let output = module_build_thread_handle
-            .wait_with_output()
-            .with_context(|| {
-                format!(
-                    "Failed waiting for cargo build command at {}",
-                    module_path.display()
-                )
-            })?;
-
+    for (module_path, output) in module_outputs.into_iter() {
         if !output.status.success() {
             println!(
                 "cargo:warning=Module {} build was unsuccessful, output: {}, err: {}",

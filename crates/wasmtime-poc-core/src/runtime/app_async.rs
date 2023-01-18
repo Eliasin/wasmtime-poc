@@ -3,7 +3,7 @@ use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 use rand::{rngs::OsRng, RngCore};
 use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::task::JoinError;
+use tokio::{sync::mpsc, task::JoinError};
 use wasmtime::{
     component::{Component, Linker},
     Config, Engine, Store,
@@ -16,11 +16,17 @@ mod mqtt_runtime;
 
 pub const APP_ASYNC_DEBUG_TARGET: &str = "wasmtime_poc_core::runtime::app_async";
 
-use crate::api::{debug_async_api, env_async_api, fio_async_api, mqtt_async_api, util_async_api};
+use crate::api::{
+    debug_async_api, env_async_api,
+    fio_async_api::{self, FileIOState},
+    mqtt_async_api::{self, MqttConnection},
+    spawn_async_api::SpawnState,
+    util_async_api,
+};
 
 use super::{
-    initialize_fio_for_module, AsyncWasmModuleStore, InitializedModule, ModuleRuntimeConfig,
-    SharedMqttRuntimeConfig, UninitializedAppContext, UninitializedModule,
+    AsyncWasmModuleStore, InitializedModule, ModuleRuntimeConfig, SharedMqttRuntimeConfig,
+    SpawnRequest, UninitializedAppContext, UninitializedModule,
 };
 
 wasmtime::component::bindgen!({
@@ -114,6 +120,7 @@ impl InitializedAsyncAppContext {
             mqtt_connection,
             fio: _,
             env: _,
+            spawn: _,
         } = store.into_data();
 
         if let Some(mqtt_connection) = mqtt_connection {
@@ -164,23 +171,12 @@ impl InitializedAsyncAppContext {
         }
     }
 
-    async fn start_module(
-        engine: &Engine,
+    async fn create_mqtt_runtime_for_module(
         module_name: &str,
+        module_instance_id: ModuleInstanceId,
         module_template: &InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
         mqtt_runtimes: &mut MqttRuntimes,
-    ) -> anyhow::Result<tokio::task::JoinHandle<AsyncModuleRuntime>> {
-        let module_instance_id = OsRng.next_u64();
-        let module_name_string = module_name.to_string();
-
-        let mut mqtt_connection = None;
-
-        log::debug!(
-            "Starting module {} instance id {}",
-            module_name,
-            module_instance_id
-        );
-
+    ) -> anyhow::Result<Option<MqttConnection>> {
         if let Some(mqtt_config) = &module_template.runtime_config.mqtt {
             match mqtt_runtimes
                 .create_runtime_for_module(module_instance_id, mqtt_config)
@@ -192,7 +188,7 @@ impl InitializedAsyncAppContext {
                         module_name,
                         module_instance_id
                     );
-                    mqtt_connection = Some(connection);
+                    Ok(Some(connection))
                 }
                 Err(e) => {
                     bail!(
@@ -202,23 +198,45 @@ impl InitializedAsyncAppContext {
                     )
                 }
             }
+        } else {
+            Ok(None)
         }
+    }
 
-        let mut fio = None;
-        if let Some(fio_runtime) = initialize_fio_for_module(&module_template.runtime_config) {
-            match fio_runtime {
-                Ok(fio_runtime) => {
-                    fio = Some(fio_runtime.fio);
-                }
-                Err(e) => log::error!(
-                    "Error starting File IO runtime for module '{}': {}",
-                    module_name,
-                    e
-                ),
-            }
-        }
+    async fn start_module(
+        engine: &Engine,
+        module_name: &str,
+        module_template: &InitializedModule<AsyncWasmModuleStore, ModuleRuntimeConfig>,
+        mqtt_runtimes: &mut MqttRuntimes,
+        spawn_request_sender: mpsc::Sender<SpawnRequest>,
+        arg: Option<Vec<u8>>,
+    ) -> anyhow::Result<tokio::task::JoinHandle<AsyncModuleRuntime>> {
+        let module_instance_id = OsRng.next_u64();
+        let module_name_string = module_name.to_string();
+
+        log::debug!(
+            "Starting module {} instance id {}",
+            module_name,
+            module_instance_id
+        );
+
+        let mqtt_connection = Self::create_mqtt_runtime_for_module(
+            module_name,
+            module_instance_id,
+            module_template,
+            mqtt_runtimes,
+        )
+        .await?;
+        let fio = module_template
+            .runtime_config
+            .fio
+            .as_ref()
+            .map(FileIOState::from_config);
 
         let env = module_template.runtime_config.env.clone();
+
+        let spawn =
+            SpawnState::from_config(&module_template.runtime_config.spawn, spawn_request_sender);
 
         let mut store = Store::new(
             engine,
@@ -226,6 +244,7 @@ impl InitializedAsyncAppContext {
                 mqtt_connection,
                 fio,
                 env,
+                spawn,
             },
         );
 
@@ -235,8 +254,8 @@ impl InitializedAsyncAppContext {
                 .await?;
 
         Ok(tokio::spawn(async move {
-            if let Err(err) = exports.start(&mut store).await {
-                log::warn!("Trap occurred in WASM module task, {:?}", err);
+            if let Err(err) = exports.start(&mut store, arg.as_deref()).await {
+                log::warn!("Trap or error occurred in WASM module task, {:?}", err);
             };
 
             AsyncModuleRuntime {
@@ -267,20 +286,59 @@ impl InitializedAsyncAppContext {
         let mut executing_modules: FuturesUnordered<tokio::task::JoinHandle<AsyncModuleRuntime>> =
             FuturesUnordered::new();
 
-        for (module_name, module_data) in startup_modules {
+        let (spawn_request_sender, mut spawn_request_receiver) = mpsc::channel(32);
+
+        for (module_name, module) in startup_modules {
             executing_modules.push(
-                InitializedAsyncAppContext::start_module(
+                Self::start_module(
                     &self.engine,
                     module_name,
-                    module_data,
+                    module,
                     &mut self.mqtt_runtimes,
+                    spawn_request_sender.clone(),
+                    None,
                 )
                 .await?,
             );
         }
 
-        while let Some(async_module_runtime) = executing_modules.next().await {
-            self.handle_module_join(async_module_runtime).await;
+        loop {
+            tokio::select! {
+                async_module_runtime = executing_modules.next() => {
+                    if let Some(async_module_runtime) = async_module_runtime {
+                        self.handle_module_join(async_module_runtime).await;
+                    } else {
+                        break;
+                    }
+                },
+                spawn_request = spawn_request_receiver.recv() => {
+                    let Some(SpawnRequest { module_name, arg }) = spawn_request else {
+                       log::warn!("Spawn request channel closed");
+                        continue;
+                    };
+
+                    let Some((module_name, module)) =
+                        self
+                        .modules
+                        .iter_mut()
+                        .find(|(name, _)| **name == module_name) else {
+                       log::warn!("Spawn request for unknown module {module_name}");
+                        continue;
+                    };
+
+                    executing_modules.push(
+                        Self::start_module(
+                            &self.engine,
+                            module_name,
+                            module,
+                            &mut self.mqtt_runtimes,
+                            spawn_request_sender.clone(),
+                            arg
+                        )
+                        .await?
+                    );
+                }
+            }
         }
 
         self.mqtt_runtimes.cleanup().await;

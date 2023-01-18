@@ -1,15 +1,14 @@
 use anyhow::Context;
 use serde_derive::Deserialize;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{collections::HashMap, path::Path, time::Duration};
 use tokio::sync::mpsc;
 
 use crate::{
     api::fio_async_api::FileIOState,
-    api::mqtt_async_api::{InstancedConnection, MqttConnection},
+    api::{
+        mqtt_async_api::{InstancedConnection, MqttConnection},
+        spawn_async_api::SpawnState,
+    },
 };
 
 #[derive(Deserialize, Clone)]
@@ -57,10 +56,15 @@ pub struct SharedMqttRuntimeConfig {
 
 #[derive(Deserialize, Clone)]
 pub struct FileIORuntimeConfig {
-    allowed_write_files: Vec<String>,
-    allowed_write_folders: Vec<String>,
-    allowed_read_files: Vec<String>,
-    allowed_read_folders: Vec<String>,
+    pub allowed_write_files: Vec<String>,
+    pub allowed_write_directories: Vec<String>,
+    pub allowed_read_files: Vec<String>,
+    pub allowed_read_directories: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+pub struct SpawnRuntimeConfig {
+    pub allowed_modules: Vec<String>,
 }
 
 #[derive(Deserialize, Clone)]
@@ -68,6 +72,9 @@ pub struct ModuleRuntimeConfig {
     pub on_startup: bool,
     pub mqtt: Option<MqttRuntimeConfig>,
     pub fio: Option<FileIORuntimeConfig>,
+    #[serde(default)]
+    pub spawn: SpawnRuntimeConfig,
+    #[serde(default)]
     pub env: HashMap<String, String>,
 }
 
@@ -147,45 +154,9 @@ impl MqttRuntime {
     }
 }
 
-pub struct AsyncFileIORuntime {
-    pub fio: FileIOState,
-}
-
 pub struct AsyncWasmModuleStore {
     pub mqtt_connection: Option<MqttConnection>,
     pub fio: Option<FileIOState>,
     pub env: HashMap<String, String>,
-}
-
-fn create_fio_runtime(fio_config: &FileIORuntimeConfig) -> anyhow::Result<AsyncFileIORuntime> {
-    Ok(AsyncFileIORuntime {
-        fio: FileIOState::new(
-            fio_config
-                .allowed_write_files
-                .iter()
-                .map(PathBuf::from)
-                .collect(),
-            fio_config
-                .allowed_write_folders
-                .iter()
-                .map(PathBuf::from)
-                .collect(),
-            fio_config
-                .allowed_read_files
-                .iter()
-                .map(PathBuf::from)
-                .collect(),
-            fio_config
-                .allowed_read_folders
-                .iter()
-                .map(PathBuf::from)
-                .collect(),
-        ),
-    })
-}
-
-pub fn initialize_fio_for_module(
-    module_runtime_config: &ModuleRuntimeConfig,
-) -> Option<anyhow::Result<AsyncFileIORuntime>> {
-    module_runtime_config.fio.as_ref().map(create_fio_runtime)
+    pub spawn: SpawnState,
 }

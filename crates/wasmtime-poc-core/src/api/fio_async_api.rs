@@ -12,6 +12,8 @@ wasmtime::component::bindgen!({
 
 pub use fio::add_to_linker;
 
+use crate::runtime::FileIORuntimeConfig;
+
 pub struct FileIOState {
     allowed_write_files: Vec<PathBuf>,
     allowed_write_directories: Vec<PathBuf>,
@@ -21,17 +23,27 @@ pub struct FileIOState {
 }
 
 impl FileIOState {
-    pub fn new(
-        allowed_write_files: Vec<PathBuf>,
-        allowed_write_folders: Vec<PathBuf>,
-        allowed_read_files: Vec<PathBuf>,
-        allowed_read_folders: Vec<PathBuf>,
-    ) -> FileIOState {
-        FileIOState {
+    pub fn from_config(fio_config: &FileIORuntimeConfig) -> Self {
+        let FileIORuntimeConfig {
             allowed_write_files,
-            allowed_write_directories: allowed_write_folders,
+            allowed_write_directories,
             allowed_read_files,
-            allowed_read_directories: allowed_read_folders,
+            allowed_read_directories,
+        } = fio_config;
+
+        let allowed_write_files = allowed_write_files.iter().map(PathBuf::from).collect();
+        let allowed_write_directories = allowed_write_directories
+            .iter()
+            .map(PathBuf::from)
+            .collect();
+        let allowed_read_files = allowed_read_files.iter().map(PathBuf::from).collect();
+        let allowed_read_directories = allowed_read_directories.iter().map(PathBuf::from).collect();
+
+        Self {
+            allowed_write_files,
+            allowed_write_directories,
+            allowed_read_files,
+            allowed_read_directories,
             open_file_handles: HashMap::new(),
         }
     }

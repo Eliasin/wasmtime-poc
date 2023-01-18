@@ -10,6 +10,12 @@ pub enum RuntimeEvent {
     RuntimeTaskStop,
 }
 
+#[derive(Debug)]
+pub struct SpawnRequest {
+    pub module_name: String,
+    pub arg: Option<Vec<u8>>,
+}
+
 pub(super) struct UninitializedModule<C> {
     pub(super) bytes: Box<[u8]>,
     pub(super) runtime_config: C,
