@@ -17,10 +17,10 @@ struct Request<'a> {
 struct Response<'a> {
     data: &'a [u8],
     leading_zeros: u8,
-    nonce: u16,
+    nonce: u32,
 }
 
-fn digest_leading_zeroes(digest_bytes: &[u8]) -> u8 {
+fn digest_leading_zeros(digest_bytes: &[u8]) -> u8 {
     let mut leading_zeros = 0;
 
     for byte in digest_bytes {
@@ -38,7 +38,7 @@ fn digest_leading_zeroes(digest_bytes: &[u8]) -> u8 {
 
 fn handle_request<'a>(request: &'a Request) -> Response<'a> {
     let mut hasher = Md5::new();
-    let mut nonce: u16 = 0;
+    let mut nonce: u32 = 0;
 
     loop {
         hasher.update(request.data);
@@ -46,7 +46,7 @@ fn handle_request<'a>(request: &'a Request) -> Response<'a> {
 
         let digest = hasher.finalize_reset();
 
-        if digest_leading_zeroes(digest.as_slice()) >= request.leading_zeros {
+        if digest_leading_zeros(digest.as_slice()) >= request.leading_zeros {
             let Request {
                 data,
                 leading_zeros,

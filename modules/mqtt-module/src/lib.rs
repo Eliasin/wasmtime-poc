@@ -7,7 +7,8 @@ export_apis!(Start);
 impl apis::Apis for Start {
     fn start(_arg: Option<Vec<u8>>) -> Result<(), String> {
         mqtt::subscribe("hash/request", mqtt::QualityOfService::AtMostOnce)?;
-        mqtt::subscribe("hash/stop", mqtt::QualityOfService::ExactlyOnce)?;
+
+        debug::info("Sending start signal");
 
         mqtt::publish(
             "hash/start",
@@ -16,16 +17,19 @@ impl apis::Apis for Start {
             &[],
         )?;
 
+        let mut n = 0;
         loop {
             if let Ok(mqtt::Event::Incoming(mqtt::IncomingEvent::Publish(event))) = mqtt::poll() {
                 match event.topic.as_str() {
                     "hash/request" => {
+                        n += 1;
                         if let Err(e) = spawn::spawn("hash_worker", Some(&event.payload)) {
                             debug::error(format!("Error while spawning hash worker: {e}").as_str());
                         }
-                    }
-                    "hash/stop" => {
-                        break;
+
+                        if n >= 512 {
+                            break;
+                        }
                     }
                     _ => {}
                 }

@@ -20,7 +20,7 @@ use crate::api::{
     debug_async_api, env_async_api,
     fio_async_api::{self, FileIOState},
     mqtt_async_api::{self, MqttConnection},
-    spawn_async_api::SpawnState,
+    spawn_async_api::{self, SpawnState},
     util_async_api,
 };
 
@@ -59,6 +59,7 @@ impl UninitializedAppContext {
         env_async_api::add_to_linker(&mut linker, |s| s)?;
         util_async_api::add_to_linker(&mut linker, |s| s)?;
         fio_async_api::add_to_linker(&mut linker, |s| &mut s.fio)?;
+        spawn_async_api::add_to_linker(&mut linker, |s| &mut s.spawn)?;
 
         Ok((
             module_name,
@@ -278,7 +279,7 @@ impl InitializedAsyncAppContext {
 
         let thread_engine_arc = self.engine.clone();
         std::thread::spawn(move || loop {
-            std::thread::sleep(Duration::from_millis(5));
+            std::thread::sleep(Duration::from_millis(50));
 
             thread_engine_arc.increment_epoch();
         });

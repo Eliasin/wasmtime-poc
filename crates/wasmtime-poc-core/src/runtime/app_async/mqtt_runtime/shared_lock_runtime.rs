@@ -67,6 +67,11 @@ impl SharedLockRuntime {
             .module_event_sender
             .send(SharedMqttModuleEvent::ModuleFinished {
                 id: module_instance_id,
+                module_subscriptions: connection
+                    .module_subscriptions()
+                    .iter()
+                    .map(|(topic, _)| topic.clone())
+                    .collect(),
             })
             .await
         {
@@ -165,7 +170,7 @@ async fn async_shared_lock_mqtt_runtime_task(
                 match notification {
                     Ok(notification) => {
                         for module_event_sender in module_event_senders.values_mut() {
-                            if module_event_sender.send(notification.clone()).await.is_err() {
+                            if module_event_sender.try_send(notification.clone()).is_err() {
                                 log::debug!("Error sending mqtt event to module event channel, module is probably awaiting cleanup")
                             }
                         }

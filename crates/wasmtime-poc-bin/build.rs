@@ -97,7 +97,7 @@ fn build_modules() -> anyhow::Result<()> {
 
         let mut cargo_build_command = {
             let mut c = Command::new("cargo");
-            c.args(["build", "--target", "wasm32-unknown-unknown"])
+            c.args(["build", "--release", "--target", "wasm32-unknown-unknown"])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .current_dir(&canonical_module_path);
@@ -176,7 +176,7 @@ fn build_modules() -> anyhow::Result<()> {
             let adjusted_module_package_name = module_package_name.replace('-', "_");
 
             let wasm_module_file_path = module_path
-                .join("target/wasm32-unknown-unknown/debug/")
+                .join("target/wasm32-unknown-unknown/release/")
                 .join(adjusted_module_package_name.clone())
                 .with_extension("wasm");
 

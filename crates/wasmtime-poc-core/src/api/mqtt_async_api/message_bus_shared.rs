@@ -50,6 +50,10 @@ impl MessageBusSharedConnection {
     pub fn runtime_id(&self) -> &SharedMqttRuntimeId {
         &self.runtime_id
     }
+
+    pub fn module_subscriptions(&self) -> &[(String, mqtt::QualityOfService)] {
+        &self.subbed_topics
+    }
 }
 
 #[async_trait::async_trait]

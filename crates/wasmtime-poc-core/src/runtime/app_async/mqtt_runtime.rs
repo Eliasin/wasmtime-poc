@@ -30,6 +30,7 @@ pub enum SharedMqttModuleEvent {
     },
     ModuleFinished {
         id: ModuleInstanceId,
+        module_subscriptions: Vec<String>,
     },
 }
 
@@ -243,7 +244,10 @@ pub fn handle_module_event(
             );
             module_event_senders.insert(id, module_mqtt_event_sender);
         }
-        SharedMqttModuleEvent::ModuleFinished { id } => {
+        SharedMqttModuleEvent::ModuleFinished {
+            id,
+            module_subscriptions: _,
+        } => {
             log::debug!(
                 "Module instance id {} finished and is being removed from runtime {}",
                 id,

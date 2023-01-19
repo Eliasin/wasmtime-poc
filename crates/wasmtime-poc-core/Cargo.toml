@@ -19,3 +19,14 @@ chrono = "0.4.23"
 rand = "0.8.5"
 async-trait = "0.1.61"
 enum_dispatch = "0.3.11"
+
+[dev-dependencies]
+criterion = { version = "0.4", features = ["async_tokio", "html_reports"] }
+tokio = { version = "1.21.0", features = ["full"] }
+
+[[bench]]
+name = "bench"
+harness = false
+
+[profile.bench]
+debug = true

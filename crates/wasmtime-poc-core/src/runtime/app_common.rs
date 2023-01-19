@@ -5,7 +5,7 @@ use wasmtime::component::{Component, Linker};
 
 use super::{AppConfig, ModuleLocator, ModuleRuntimeConfig};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RuntimeEvent {
     RuntimeTaskStop,
 }

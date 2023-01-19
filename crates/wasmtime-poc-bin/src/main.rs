@@ -12,7 +12,7 @@ struct Args {
     config_path: String,
     #[clap(short, long, default_value = "warn")]
     app_debug: String,
-    #[clap(short, long, default_value = "warn")]
+    #[clap(short, long, default_value = "info")]
     module_debug: String,
     #[clap(long)]
     coredump_on_panic: bool,

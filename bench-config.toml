@@ -1,0 +1,33 @@
+[[modules]]
+name = "mqtt_module"
+[modules.module_locator]
+path = "../../module-build/mqtt_module.wasm"
+[modules.runtime]
+on_startup = true
+
+[modules.runtime.mqtt]
+runtime_id = "mqtt"
+allowed_sub_topics = ["hash/request", "hash/stop"]
+allowed_pub_topics = ["hash/start"]
+
+[modules.runtime.spawn]
+allowed_modules = ["hash_worker"]
+
+[[modules]]
+name = "hash_worker"
+[modules.module_locator]
+path = "../../module-build/hash_worker.wasm"
+[modules.runtime]
+on_startup = false
+
+[modules.runtime.mqtt]
+runtime_id = "mqtt"
+allowed_sub_topics = []
+allowed_pub_topics = ["hash/response"]
+
+[[shared_mqtt_runtimes]]
+runtime_id = "mqtt"
+client_id = "mqtt"
+host = "192.168.0.122"
+port = 1883
+flavor = "shared_message_bus"
