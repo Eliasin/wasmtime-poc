@@ -255,7 +255,7 @@ impl InitializedAsyncAppContext {
                 .await?;
 
         Ok(tokio::spawn(async move {
-            if let Err(err) = exports.start(&mut store, arg.as_deref()).await {
+            if let Err(err) = exports.call_start(&mut store, arg.as_deref()).await {
                 log::warn!("Trap or error occurred in WASM module task, {:?}", err);
             };
 

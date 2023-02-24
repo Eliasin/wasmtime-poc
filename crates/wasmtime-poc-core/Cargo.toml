@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", features = ["async", "component-model"], rev = "44913825b5e93d40ea4ca4fb3d03ab3aa15e1714" }
+wasmtime = { git = "https://github.com/bytecodealliance/wasmtime.git", features = ["async", "component-model"], rev = "7d790fc" }
 rumqttc = "0.14.0"
 toml = "0.5.9"
 serde = "1.0.144"
@@ -27,6 +27,3 @@ tokio = { version = "1.21.0", features = ["full"] }
 [[bench]]
 name = "bench"
 harness = false
-
-[profile.bench]
-debug = true

@@ -1,7 +1,7 @@
 use md5::{Digest, Md5};
 use serde::{Deserialize, Serialize};
 
-wit_bindgen_guest_rust::generate!("../../wit-bindgen/apis.wit");
+wit_bindgen::generate!("apis");
 
 struct Start;
 
@@ -62,7 +62,7 @@ fn handle_request<'a>(request: &'a Request) -> Response<'a> {
     }
 }
 
-impl apis::Apis for Start {
+impl Apis for Start {
     fn start(arg: Option<Vec<u8>>) -> Result<(), String> {
         let Some(arg) = arg else {
             return Err("hash-worker module expected argument".to_string());

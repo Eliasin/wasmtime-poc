@@ -1,10 +1,10 @@
-wit_bindgen_guest_rust::generate!("../../wit-bindgen/apis.wit");
+wit_bindgen::generate!("apis");
 
 struct Start;
 
 export_apis!(Start);
 
-impl apis::Apis for Start {
+impl Apis for Start {
     fn start(_arg: Option<Vec<u8>>) -> Result<(), String> {
         mqtt::subscribe("hash/request", mqtt::QualityOfService::AtMostOnce)?;
 
