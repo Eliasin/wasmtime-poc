@@ -21,6 +21,7 @@ use crate::api::{
     fio_async_api::{self, FileIOState},
     mqtt_async_api::{self, MqttConnection},
     spawn_async_api::{self, SpawnState},
+    unix_stream_socket_async_api::{self, UnixStreamSocketAsyncState},
     util_async_api,
 };
 
@@ -60,6 +61,7 @@ impl UninitializedAppContext {
         util_async_api::add_to_linker(&mut linker, |s| s)?;
         fio_async_api::add_to_linker(&mut linker, |s| &mut s.fio)?;
         spawn_async_api::add_to_linker(&mut linker, |s| &mut s.spawn)?;
+        unix_stream_socket_async_api::add_to_linker(&mut linker, |s| &mut s.unix_stream_socket)?;
 
         Ok((
             module_name,
@@ -122,6 +124,7 @@ impl InitializedAsyncAppContext {
             fio: _,
             env: _,
             spawn: _,
+            unix_stream_socket: _,
         } = store.into_data();
 
         if let Some(mqtt_connection) = mqtt_connection {
@@ -239,6 +242,10 @@ impl InitializedAsyncAppContext {
         let spawn =
             SpawnState::from_config(&module_template.runtime_config.spawn, spawn_request_sender);
 
+        let unix_stream_socket = Some(UnixStreamSocketAsyncState::from_config(
+            &module_template.runtime_config.unix_stream_socket,
+        ));
+
         let mut store = Store::new(
             engine,
             AsyncWasmModuleStore {
@@ -246,6 +253,7 @@ impl InitializedAsyncAppContext {
                 fio,
                 env,
                 spawn,
+                unix_stream_socket,
             },
         );
 

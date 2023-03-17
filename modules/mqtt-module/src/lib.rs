@@ -27,7 +27,7 @@ impl Apis for Start {
                             debug::error(format!("Error while spawning hash worker: {e}").as_str());
                         }
 
-                        if n >= 512 {
+                        if n >= 128 {
                             break;
                         }
                     }

@@ -8,6 +8,7 @@ use crate::{
     api::{
         mqtt_async_api::{InstancedConnection, MqttConnection},
         spawn_async_api::SpawnState,
+        unix_stream_socket_async_api::UnixStreamSocketAsyncState,
     },
 };
 
@@ -67,11 +68,18 @@ pub struct SpawnRuntimeConfig {
     pub allowed_modules: Vec<String>,
 }
 
+#[derive(Deserialize, Clone, Default)]
+pub struct UnixStreamSocketConfig {
+    pub allowed_socket_paths: Vec<String>,
+}
+
 #[derive(Deserialize, Clone)]
 pub struct ModuleRuntimeConfig {
     pub on_startup: bool,
     pub mqtt: Option<MqttRuntimeConfig>,
     pub fio: Option<FileIORuntimeConfig>,
+    #[serde(default)]
+    pub unix_stream_socket: UnixStreamSocketConfig,
     #[serde(default)]
     pub spawn: SpawnRuntimeConfig,
     #[serde(default)]
@@ -159,4 +167,5 @@ pub struct AsyncWasmModuleStore {
     pub fio: Option<FileIOState>,
     pub env: HashMap<String, String>,
     pub spawn: SpawnState,
+    pub unix_stream_socket: Option<UnixStreamSocketAsyncState>,
 }
